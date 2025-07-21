@@ -1,6 +1,5 @@
 import dd.cudd_add as _agd
 
-
 def example_agd():
     agd = _agd.ADD()
     agd.declare('x', 'y', 'z')
@@ -58,7 +57,7 @@ def variable_substitution():
     v = agd.let(rename, u)
     # show the result
     s = agd.to_expr(v)
-    agd.dump('rooted.pdf', roots=[v])
+    # agd.dump('rooted.pdf', roots=[v])
     print(s)
 
     # another way to confirm that the result is as expected
