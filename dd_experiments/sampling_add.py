@@ -2,24 +2,11 @@ import dd.cudd_add as _agd
 import math
 from time import time_ns
 
-import omega.symbolic.fol as _fol
-
-from dd_experiments.dd_from_drdd import load_adds_from_drdd
-
-
+from dd_from_drdd import load_adds_from_drdd
 
 
 def make_sample_add(manager):
-    manager.declare('w', 'm')
-    # create the BDD for the disjunction of x and y
-    zero = manager.constant(0)
-    one = manager.constant(1)
     two = manager.constant(2)
-    w = manager.var('w')
-    m = manager.var('m')
-    u = manager.apply('+', one, w)
-    v = manager.apply('*', m, two)
-    r = manager.apply('-', u, v)
 
     ver_num = 4
     req_vars = math.ceil(math.log2(ver_num))
@@ -31,62 +18,71 @@ def make_sample_add(manager):
     manager.declare(*z_var_names)
     x_vars = [manager.var(xi) for xi in x_var_names]
     y_vars = [manager.var(yi) for yi in y_var_names]
-    z_vars = [manager.var(zi) for zi in z_var_names]
-
     opr_x = manager.apply('+', *x_vars) # doesnt scale for more vars but later problem
     opr_y = manager.apply('*', *y_vars)
-    opr_y = manager.apply('+', opr_y, two)
+    #opr_y = manager.apply('+', opr_y, two)
     opr_xy = manager.apply('\\/', opr_x, opr_y)
     return opr_xy
 
+def make_min_sample(manager):
+    var_names = ['x1', 'x2', 'y1', 'y2']
+    manager.declare(*var_names)
+    u = manager.add_expr('x1 | x2 | y1 | y2')
+    return u
+
+
+def process_count_structure(manager, g0, maxN):
+    # g0 must have x1-xn, y1-yn vars
+
+    # find/define variables req
+    x_var_names = []
+    y_var_names = []
+    for v in g0.support:
+        if v.startswith('x'):
+            x_var_names.append(v)
+        elif v.startswith('y'):
+            y_var_names.append(v)
+        else:
+            raise Exception("Unrecognised variable in g0")
+    assert len(x_var_names) == len(y_var_names)
+    x_var_names = sorted(x_var_names)
+    y_var_names = sorted(y_var_names)
+    z_var_names = [v.replace('x', 'z') for v in x_var_names]
+    manager.declare(*z_var_names)
+
+    map_mul = dict(zip(x_var_names, y_var_names)) | dict(zip(y_var_names, z_var_names))
+    map_exists = dict(zip(z_var_names, y_var_names))
+
+    gs = [g0]
+    ts = []
+
+    g_k = g0
+    last_t = time_ns()
+    for k in range(0, int(math.log2(maxN))):
+        # t = g x g
+        g_k_ = manager.let(map_mul, g_k)
+        t_k = manager.apply('*', g_k, g_k_) # cuddGarbageCollect?
+
+        ts.append(t_k)
+
+        # g = Ey in t
+        g_k_pre = manager.exist(y_var_names, t_k)
+        g_k = manager.let(map_exists, g_k_pre)
+        
+        # gs.append(g_k)
+        
+        print(f'Generated {k+1}: {time_ns()-last_t}')
+        last_t = time_ns()
+
+    return ts
 
 
 manager = _agd.ADD()
-
-ver_num = 4
-req_vars = math.ceil(math.log2(ver_num))
-x_var_names = [f'x{i}' for i in range(req_vars)]
-manager.declare(*x_var_names)
-y_var_names = [f'y{i}' for i in range(req_vars)]
-manager.declare(*y_var_names)
-z_var_names = [f'z{i}' for i in range(req_vars)]
-manager.declare(*z_var_names)
-x_vars = [manager.var(xi) for xi in x_var_names]
-y_vars = [manager.var(yi) for yi in y_var_names]
-z_vars = [manager.var(zi) for zi in z_var_names]
-
-
-
-rename_mul = dict(zip(x_var_names, y_var_names)) | dict(zip(y_var_names, z_var_names))
-rename_exists = dict(zip(y_var_names, z_var_names))
-
-g0 = make_sample_add(manager)
-
-#manager.dump('dd_experiments/g0_mul.png', [t0])
-
-#manager.dump('dd_experiments/g1.png', [g1])
-
-
-gs = [g0]
-ts = []
-
-g_k = g0
-last_t = time_ns()
-for k in range(0, 7):
-    # t = g x g
-    g_k_ = manager.let(rename_mul, g_k)
-    t_k = manager.apply('*', g_k, g_k_)
-
-    ts.append(t_k)
-
-    # rename vars
-    g_k_pre = manager.exist(y_var_names, t_k)
-    g_k = manager.let(rename_exists, g_k_pre)
+#g0 = make_min_sample(manager)
+filename = "/home/jules/dtmcs/brp/dd_16_2.drdd"
+adds = load_adds_from_drdd(manager, filename,
+                                rename_vars=True)
     
-    gs.append(g_k)
-    
-    print(f'Generated {k+1}: {time_ns()-last_t}')
-    last_t = time_ns()
-
-print(manager.to_expr(g_k))
-
+g0 = adds['transitions']
+ts = process_count_structure(manager, g0, 8)
+print('done')

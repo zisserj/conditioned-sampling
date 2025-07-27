@@ -1,4 +1,5 @@
 from fileinput import filename
+from operator import add
 import dd.cudd_add as _agd
 import re
 
@@ -42,12 +43,27 @@ def build_add(agd, vars, nodes_iter):
             temp_cache.append(u)
     res = temp_cache[-1]
     del temp_cache
+    agd.configure(reordering=True)
     return res
 
-def load_adds_from_drdd(agd, filename):
+def rename_vars_xy(agd, add_dict, vars):
+    # assuming storm export, where if v100=d then v101=d'
+    map = {}
+    for i, v in enumerate(vars):
+        new_var = 'x' if i % 2 == 0 else 'y'
+        map[v] = f'{new_var}{i // 2}'
+    agd.declare(*map.values())
+    for g_name in add_dict.keys():
+        g = add_dict[g_name]
+        add_dict[g_name] = agd.let(map, g)
+    agd.vars = agd.vars - map.keys()
+
+def load_adds_from_drdd(agd, filename,
+                        rename_vars=True, load_targets=['transitions']):
     with open(filename, "r") as file:
         content = file.read()
 
+    vars = []
     adds_str = re.finditer(r"%([\S ]+)\n\[\n([\S\s]*?)\n\],\[(\d+),\]", content)
     res = {}
     for match in adds_str:
@@ -55,22 +71,34 @@ def load_adds_from_drdd(agd, filename):
         body = match.group(2).strip()
         nodes_iter = re.finditer(r"(leaf)\((\d+),\d+,\"([\d.]+)\"\)|(node)\((\d+),(\d+),(\d+),(~?\d+)\)", body)
     
-        # need to have all variables declared in advance for some reason
-        vars = re.findall(r"node\(\d+,(\d+),\d+,~?\d+\)", body)
-        vars = sorted(list(set(vars)))
-        vars = [f'v{i}' for i in vars]
-        
+        # need to have all variables declared in advance or ADD levels get messed up
+        if name == 'transitions':
+            vars = re.findall(r"node\(\d+,(\d+),\d+,~?\d+\)", body)
+            vars = sorted(list(set(vars)))
+            vars = [f'v{i}' for i in vars]
+
         size = int(match.group(3).strip())
-        res[name] = build_add(agd, vars, nodes_iter)
-    return res
+        if name in load_targets:
+            res[name] = build_add(agd, vars, nodes_iter)
     
+    if rename_vars:
+        rename_vars_xy(agd, res, vars)
+    return res
+
 
 if __name__ == '__main__':
     agd = _agd.ADD()
 
-    filename = "/home/jules/storm_sampler/storm-project-starter-cpp/symbolic_model.drdd"
-    # filename = 'dd_experiments/test.drdd'
-    adds = load_adds_from_drdd(agd, filename)
+    
+    #filename = "/home/jules/storm_sampler/storm-project-starter-cpp/symbolic_model.drdd"
+    filename = "/home/jules/dtmcs/brp/dd_16_2.drdd"
+    targets = ['transitions', 'initial', 'label target']
+    adds = load_adds_from_drdd(agd, filename,
+                                    rename_vars=True, load_targets=targets)
+    
     for name, add in adds.items():
         print(f'{name} has {add.dag_size} nodes')
         print(f'support = {add.support}')
+    
+    
+    
