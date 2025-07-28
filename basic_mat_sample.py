@@ -48,8 +48,8 @@ for i in range(1, int(np.log2(path_n))):
   print(f"i = {i}")
   # print(gi.toarray())
 
-"""$wtList[l]=val(v_l)*|\Pi_{v_l}|$  
-$|\Pi_{v_l}|$ is number of paths from node to root
+"""$wtList[l]=val(v_l)*|\\Pi_{v_l}|$  
+$|\\Pi_{v_l}|$ is number of paths from node to root
 """
 
 def pathcount(g):
@@ -59,8 +59,6 @@ def pathcount(g):
   return np.tensordot(g, b, axes=[1,0]) # type: ignore
 g = gs[1].toarray()
 res = pathcount(g)
-res
-
 
 ts = []
 for i, gi in enumerate(gs):
@@ -68,8 +66,6 @@ for i, gi in enumerate(gs):
   ts.append(ti)
   print(f"i = {i}")
   # print(ti)
-
-
 
 def weighted_idx_sample(mat):
   coords = list(zip(*np.nonzero(mat)))
@@ -93,8 +89,6 @@ def sample_mat(ti, lo, hi, w, init=[0],target=[]):
     asgn = weighted_idx_sample(opts)
     w[mid] = asgn[0]
 
-# sample from ADD
-
 
 def draw_sample(ts, init, target=[]):
   w = np.full(path_n+1, -1, dtype=int)
@@ -110,8 +104,6 @@ def draw_sample(ts, init, target=[]):
 
 #w = sample_mat(np.log2(N), ts[-1], 0, N, w)
 w = draw_sample(ts, [0],[2,3])
-w
-
 
 # Commented out IPython magic to ensure Python compatibility.
 # %%time

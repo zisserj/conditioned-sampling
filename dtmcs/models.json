@@ -1,0 +1,248 @@
+{
+	"models": [
+	
+		{
+			"name": "bluetooth",
+			"full-name": "Bluetooth device discovery",
+			"reference": "DKNP06",
+			"model-type": "DTMC",
+			"params": [
+				{
+					"name": "mrec",
+					"type": "int",
+					"description": "number of replies received",
+					"suggested-values": [1,2]
+				}
+			],
+			"www": "http://www.prismmodelchecker.org/casestudies/bluetooth.php",
+			"notes": "",
+			"properties": [
+				{
+					"name": "time",
+					"prism": "R=? [ F rec=mrec {\"init\"}{max} ]",
+					"description": "Expected time to complete the inquiry phase",
+					"category": "quant-exp-reach",
+					"notes": "Note the use of a filter since there are muliple initial states."
+				}
+			]
+		},
+		
+		{
+			"name": "brp",
+			"full-name": "Bounded retransmission protocol",
+			"reference": "DJJL01",
+			"model-type": "DTMC",
+			"params": [
+				{
+					"name": "N",
+					"type": "int",
+					"description": "number of chunks in a file",
+					"suggested-values": [16,32,64]
+				},
+				{
+					"name": "MAX",
+					"type": "int",
+					"description": "maximum number of retransmissions",
+					"suggested-values": [2,3,4,5]
+				}
+			],
+			"www": "http://www.prismmodelchecker.org/casestudies/brp.php",
+			"notes": "[DJJL01] presents the MDP model. An earlier, non-probabilistic model can be found in [HSV94].",
+			"properties": [
+				{
+					"name": "p1",
+					"prism": "P=? [ F s=5 ]",
+					"description": "Probability that the sender does not report a successful transmission (property 1 from [DJJL01])",
+					"category": "quant-prob-reach"
+				},
+				{
+					"name": "p2",
+					"prism": "P=? [ F s=5 & srep=2 ]",
+					"description": "Probability that the sender reports an uncertainty on the success of the transmission (property 2 from [DJJL01])",
+					"category": "quant-prob-reach"
+				},
+				{
+					"name": "p4",
+					"prism": "P=? [ F !(srep=0) & !recv ]",
+					"description": "Probability that the receiver does not receive any chunk when the sender did try to send a chunk (property 4 from [DJJL01])",
+					"category": "quant-prob-reach"
+				}
+			]
+		},
+		
+		{
+			"name": "crowds",
+			"full-name": "Crowds protocol",
+			"reference": "Shm04",
+			"model-type": "DTMC",
+			"params": [
+				{
+					"name": "CrowdSize",
+					"type": "int",
+					"description": "number of good crowd members",
+					"suggested-values": [5,10,15,20]
+				},
+				{
+					"name": "TotalRuns",
+					"type": "int",
+					"description": "number of protocol runs",
+					"suggested-values": [3,4,5,6]
+				}
+			],
+			"www": "http://www.prismmodelchecker.org/casestudies/crowds.php",
+			"notes": "The protocol is from [RR98].",
+			"properties": [
+				{
+					"name": "positive",
+					"prism": "P=? [ F observe0>1 ]",
+					"description": "Probability that the adversary observes the real sender more than once",
+					"category": "quant-prob-reach"
+				}
+			]
+		},
+		
+		{
+			"name": "egl",
+			"full-name": "Contract signing protocol of Even, Goldreich & Lempel",
+			"reference": "NS06",
+			"model-type": "DTMC",
+			"params": [
+				{
+					"name": "N",
+					"type": "int",
+					"description": "number of pairs of secrets",
+					"suggested-values": [2,4,6]
+				},
+				{
+					"name": "L",
+					"type": "int",
+					"description": "number of bits per secret",
+					"suggested-values": [2,4,6]
+				}
+			],
+			"www": "http://www.prismmodelchecker.org/casestudies/contract_egl.php",
+			"notes": "The protocol is from [EGL85].",
+			"properties": [
+				{
+					"name": "unfairA",
+					"prism": "P=? [ F !\"knowA\" & \"knowB\" ]",
+					"description": "Probability that party A is unfairly disadvantaged",
+					"category": "quant-prob-reach"
+				},
+				{
+					"name": "unfairB",
+					"prism": "P=? [ F !\"knowB\" & \"knowA\" ]",
+					"description": "Probability that party B is unfairly disadvantaged",
+					"category": "quant-prob-reach"
+				},
+				{
+					"name": "messagesA",
+					"prism": "R{\"messages_A_needs\"}=? [ F phase=4 ]",
+					"description": "Expected number of messages A needs to knows a pair once B knows a pair",
+					"category": "quant-exp-reach"
+				},
+				{
+					"name": "messagesB",
+					"prism": "R{\"messages_B_needs\"}=? [ F phase=4 ]",
+					"description": "Expected number of messages B needs to knows a pair once A knows a pair",
+					"category": "quant-exp-reach"
+				}
+			]
+		},
+		
+		{
+			"name": "herman",
+			"full-name": "Self-stabilisation protocol of Herman",
+			"reference": "KNP12a",
+			"model-type": "DTMC",
+			"params": [
+				{
+					"name": "N",
+					"type": "int",
+					"description": "number of processes (must be odd)",
+					"suggested-values": [3,5,7,9]
+				}
+			],
+			"www": "http://www.prismmodelchecker.org/casestudies/self-stabilisation.php",
+			"notes": "The protocol is from [Her90].",
+			"properties": [
+				{
+					"name": "steps",
+					"prism": "R=? [ F \"stable\" {\"init\"}{max} ]",
+					"description": "Expected number of steps until termination",
+					"category": "quant-exp-reach",
+					"notes": "Note the use of a filter since there are muliple initial states."
+				}
+			]
+		},
+		
+		{
+			"name": "nand",
+			"full-name": "NAND multiplexing",
+			"reference": "NPKS05",
+			"model-type": "DTMC",
+			"params": [
+				{
+					"name": "N",
+					"type": "int",
+					"description": "number of inputs in each bundle",
+					"suggested-values": [20,40,60]
+				},
+				{
+					"name": "K",
+					"type": "int",
+					"description": "number of restorative stages",
+					"suggested-values": [1,2,3]
+				}
+			],
+			"www": "http://www.prismmodelchecker.org/casestudies/self-nand.php",
+			"notes": "NAND multiplexing is from [vN56].",
+			"properties": [
+				{
+					"name": "reliable",
+					"prism": "P=? [ F s=4 & z/N<0.1 ]",
+					"description": "Probability that less than 10 percent of outputs are erroneous",
+					"category": "quant-prob-reach"
+				}
+			]
+		},
+		
+		{
+			"name": "leader_sync",
+			"full-name": "Synchronous leader election protocol of Itai & Rodeh",
+			"reference": "",
+			"model-type": "DTMC",
+			"params": [
+				{
+					"name": "N",
+					"type": "int",
+					"description": "number of processes",
+					"suggested-values": [3,4,5,6]
+				},
+				{
+					"name": "K",
+					"type": "int",
+					"description": "range of probabilistic choice",
+					"suggested-values": [2,3,4,5]
+				}
+			],
+			"www": "http://www.prismmodelchecker.org/casestudies/synchronous_leader.php",
+			"notes": "The protocol is from [IR90].",
+			"properties": [
+				{
+					"name": "eventually_elected",
+					"prism": "P>=1 [ F \"elected\" ]",
+					"description": "Probability that a leader is eventually elected",
+					"category": "qual-prob-reach"
+				},
+				{
+					"name": "time",
+					"prism": "R{\"num_rounds\"}=? [ F \"elected\" ]",
+					"description": "Expected time (number of rounds) to elect a leader",
+					"category": "quant-exp-reach"
+				}
+			]
+		}
+		
+	]
+}

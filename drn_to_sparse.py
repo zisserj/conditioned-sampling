@@ -9,7 +9,8 @@ def read_drn(filename):
         content = f.read()
 
     # pat_without_sqr = r"state (\d+) ?([\w ]*)\n\taction 0\n([\s\d:.]*)"
-    pat_with_sqr = r"state (\d+) \[0\] ?([\w ]*)\n\taction 0 \[\d+\]\n([\s\d:.]*)"
+    # TODO
+    pat_with_sqr = r"state (\d+) \[\d+\] ?([\w ]*)\n\taction 0 \[\d+\]\n([\s\d:.]*)"
 
     rows_match = re.finditer(pat_with_sqr, content)
     num_states = int(re.findall(r"@nr_states\n(\d+)",content)[0])
