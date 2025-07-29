@@ -1,17 +1,15 @@
-# -*- coding: utf-8 -*-
 
+import time
 import numpy as np
 import scipy.sparse as sp
 import itertools
 np.set_printoptions(precision=2, suppress=True)
 rng = np.random.default_rng()
 from drn_to_sparse import read_drn
-# import argparse
+import argparse
 
-# parser = argparse.ArgumentParser("Precomutes and uniformly samples TS via matrix representaation.")
-# parser.add_argument("fname", help="Target mat pickle.", type=str)
-# args = parser.parse_args()
-# fname = args.fname
+ms_str_from = lambda start_ns: f'{(time.perf_counter_ns()-start_ns)*1e-6:05.6f}ms'
+ms_str_any = lambda ns: f'{ns*1e-6:.6f}ms'
 
 
 # make T[x,y,z] = G[x,y] * G[y,z]
@@ -35,6 +33,12 @@ def generate_power_mats(transition, length):
         # print(ti.sum(axis=1))
     return gs, ts
 
+def ts_sanity_test(ts, path_n, init, target):
+        # P=? [F={path_n} "target"]
+        actual_prob_test = slice_csr_full(ts[int(np.log2(path_n))], init, target)
+        print(actual_prob_test.sum())
+        # should be the same as the storm property test
+    
 # M[i, j, k] = M'[i, (j*n)+k]
 # arrays as input for inital/target states
 def slice_csr_full(mat, x, z):
@@ -152,39 +156,61 @@ def make_small_sample_count():
     vals = list(ts_t0.values())
     return sp.coo_array((vals, (row, col)), shape=(dim, dim), dtype=float).tocsr()
 
-def generate_many_traces(ts, init, target, repeats=1000):
+def generate_many_traces(ts, init, target, repeats=5000):
     results = {}
+    start_time = time.perf_counter_ns()
     for _ in range(repeats):
         tr = tuple(draw_sample(ts, path_n, init, target))
         if tr not in results:
             results[tr] = 1
         else:
             results[tr] += 1
-    legible = '\n'.join([','.join([str(i) for i in k]) + f' - {v}' for k, v in results.items()])
+    ns_taken_avg = (time.perf_counter_ns() - start_time) / repeats
+    # legible = '\n'.join([','.join([str(i) for i in k]) + f' - {v}' for k, v in results.items()])
+    legible = '\n'.join([f'{i} - {v}' for i, v in enumerate(results.values())])
     print(legible)
+    print(f'Taken {ms_str_any(ns_taken_avg)} per sample')
 
 
 if __name__ == "__main__":
-    filename = "/home/jules/storm_sampler/storm-project-starter-cpp/sparse_model.drn"
-
-    model = read_drn(filename)
+    
+    parser = True
+    if parser:
+        parser = argparse.ArgumentParser("Generates conditional samples of system via sparse matrices.")
+        parser.add_argument("fname", help="Model exported as drn file by storm", type=str)
+        parser.add_argument("length", help="Generated trace length (currently only supports powers of 2)", type=int)
+        parser.add_argument("-repeats", help="Number of traces to generate", type=int, default=1000)
+        parser.add_argument("-tlabel", help="Name of target label matching desired final states",
+                            type=str, default='target')
+        args = parser.parse_args()
+        filename = args.fname
+        path_n = args.length
+        repeats = args.repeats
+        tlabel = args.tlabel
+        
+    else:
+        # filename = "/home/jules/storm_sampler/storm-project-starter-cpp/sparse_model.drn" # dice model
+        filename = "/home/jules/conditioned_sampling/dtmcs/brp/brp_16_2.drn"
+        path_n = 16
+        repeats = 1000
+        tlabel = 'target'
+    
+    parse_time = time.perf_counter_ns()
+    model = read_drn(filename, target_label=tlabel)
+    print(f'Finished parsing input: {ms_str_from(parse_time)}.')
     init = model['init']
-    goal = model['target']
+    target = model[tlabel]
     transitions = model['trans']
-    # transitions = make_small_sample()
+    dim = transitions.shape[0]
     
-    # goal = [1,2]
-    
-    path_n = 8
-    dim = transitions.shape[0] # type: ignore
-    
+    precomp_time = time.perf_counter_ns()
     gs, ts = generate_power_mats(transitions, path_n)
-    trace = draw_sample(ts, path_n, init, goal)
-    # print(trace)
-    generate_many_traces(ts, init, goal)
+    print(f'Finished precomputing functions: {ms_str_from(precomp_time)}.')
+    
+    # trace = draw_sample(ts, path_n, init, target)
+    # print(f'Finished drawing 1 sample: {ms_from(precomp_time)} from parse')
+
+    generate_many_traces(ts, init, target, repeats=repeats)
     
      
-    #res = draw_sample_init(gs, 6, [0,1], [0,1,2])
-    
-    
     

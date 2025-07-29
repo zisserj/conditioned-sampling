@@ -3,14 +3,18 @@ import numpy as np
 import scipy.sparse as sp
 
 # storm --prism crowds.pm --constants "TotalRuns=3,CrowdSize=10" --buildfull --prismcompat --engine sparse --exportbuild test_base.drn
+'''
+storm --prism brp.pm --constants N=16,MAX=2 --buildfull --prismcompat --engine sparse --exportbuild brp_16_2.drn
+storm --prism brp.pm --constants N=16,MAX=2 --buildfull --prismcompat --engine dd --exportbuild brp_16_2.drdd
+'''
 
-def read_drn(filename):
+
+def read_drn(filename, target_label='target'):
     with open(filename) as f:
         content = f.read()
 
-    # pat_without_sqr = r"state (\d+) ?([\w ]*)\n\taction 0\n([\s\d:.]*)"
-    # TODO
-    pat_with_sqr = r"state (\d+) \[\d+\] ?([\w ]*)\n\taction 0 \[\d+\]\n([\s\d:.]*)"
+    # currently does not capture rewards
+    pat_with_sqr = r"state (\d+)(?: \[[\d.,]+\])? ?([\w ]*)\n\taction 0(?: \[[\d.,]+\])?\n([\s\d:.]*)"
 
     rows_match = re.finditer(pat_with_sqr, content)
     num_states = int(re.findall(r"@nr_states\n(\d+)",content)[0])
@@ -24,7 +28,7 @@ def read_drn(filename):
         labels = match.group(2).strip().split()
         if "init" in labels:
             initial_states.append(idx)
-        if "target" in labels:
+        if target_label in labels:
             target_states.append(idx)
         body = match.group(3).strip()
         ts_strs = re.finditer(r"(\d+) : ([\d.]+)", body)
@@ -37,9 +41,9 @@ def read_drn(filename):
     initial = np.array(initial_states)
     target = np.array(target_states)
     transitions = t_mat.tocsr()
+    assert transitions.nnz > 0, "Input drn was not processed correctly"
 
     return {'init': initial, 'target': target, 'trans': transitions}
-
 
 if __name__ == '__main__':
     filename = "/home/jules/storm_sampler/storm-project-starter-cpp/sparse_model.drn"
