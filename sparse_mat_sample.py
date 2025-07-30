@@ -167,7 +167,7 @@ def generate_many_traces(ts, init, target, repeats=5000):
             results[tr] += 1
     ns_taken_avg = (time.perf_counter_ns() - start_time) / repeats
     # legible = '\n'.join([','.join([str(i) for i in k]) + f' - {v}' for k, v in results.items()])
-    legible = '\n'.join([f'{i} - {v}' for i, v in enumerate(results.values())])
+    legible = '\n'.join([f'#{i} - {v}' for i, v in enumerate(results.values(), start=1)])
     print(legible)
     print(f'Taken {ms_str_any(ns_taken_avg)} per sample')
 
@@ -202,6 +202,9 @@ if __name__ == "__main__":
     target = model[tlabel]
     transitions = model['trans']
     dim = transitions.shape[0]
+    
+    print(f"Number of states: {transitions.shape[0]}")
+    print(f"Number of transitions: {transitions.nnz}")
     
     precomp_time = time.perf_counter_ns()
     gs, ts = generate_power_mats(transitions, path_n)
