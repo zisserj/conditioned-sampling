@@ -14,7 +14,7 @@ def read_drn(filename, target_label='target'):
         content = f.read()
 
     # currently does not capture rewards
-    pat_with_sqr = r"state (\d+)(?: \[[\d.,]+\])? ?([\w ]*)\n\taction 0(?: \[[\d.,]+\])?\n([\s\d:.]*)"
+    pat_with_sqr = r"state (\d+)(?: \[[\d., ]+\])? ?([\w ]*)\n\taction 0(?: \[[\d., ]+\])?\n([\s\d:.]*)"
 
     rows_match = re.finditer(pat_with_sqr, content)
     num_states = int(re.findall(r"@nr_states\n(\d+)",content)[0])
