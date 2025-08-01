@@ -97,6 +97,8 @@ def weighted_idx_sample(mat):
 def sample_conditioned(ti, init, target, w):
     mid = (len(w))//2
     rel_mat = slice_csr_full(ti, init, target)
+    if rel_mat.max() == 0:
+        return "No matching traces"
     # per_init_idx = np.sum(rel_mat, axis=(0, 1))
     bounds_idx = weighted_idx_sample(rel_mat)
     w[0] = init[bounds_idx[0]]
@@ -112,7 +114,9 @@ def sample_seq_step(ti, lo, hi, w):
 
 def draw_sample(ts, length, init=[0], target=[]):
     w = np.full(length+1, -1, dtype=int)
-    sample_conditioned(ts[-1], init, target, w)
+    no_states = sample_conditioned(ts[-1], init, target, w)
+    if no_states:
+        return no_states
     for i in range(int(np.log2(path_n))-1, 0, -1):
         inc = np.power(2, i)
         for j in range(0, path_n, inc):
@@ -162,7 +166,11 @@ def generate_many_traces(ts, init, target, save_traces=False, repeats=500):
     time_total = 0
     for _ in range(repeats):
         iter_start_time = time.perf_counter_ns()
-        tr = tuple(draw_sample(ts, path_n, init, target))
+        res = draw_sample(ts, path_n, init, target)
+        if type(res) == str:
+            print(res)
+            return
+        tr = tuple(res)
         time_total += time.perf_counter_ns() - iter_start_time
         if save_traces and tr not in results:
             results[tr] = 1
@@ -193,10 +201,10 @@ if __name__ == "__main__":
         
     else:
         # filename = "/home/jules/storm_sampler/storm-project-starter-cpp/sparse_model.drn" # dice model
-        filename = "/home/jules/conditioned_sampling/dtmcs/herman/herman3.drn"
-        path_n = 64
+        filename = "/home/jules/conditioned_sampling/dtmcs/egl/egl_N_5_L_2.drn"
+        path_n = 8
         repeats = 100
-        tlabel = 'stable'
+        tlabel = 'target'
     
     parse_time = time.perf_counter_ns()
     model = read_drn(filename, target_label=tlabel)
