@@ -16,6 +16,7 @@ ms_str_any = lambda ns: f'{ns*1e-6:.6f}ms'
 def compute_mid_step(g):
     wide = sp.block_diag(g)
     mult = g @ wide
+    # print(mult.data.nbytes + mult.indptr.nbytes + mult.indices.nbytes)
     return mult
 
 def generate_power_mats(transition, length):
@@ -156,19 +157,21 @@ def make_small_sample_count():
     vals = list(ts_t0.values())
     return sp.coo_array((vals, (row, col)), shape=(dim, dim), dtype=float).tocsr()
 
-def generate_many_traces(ts, init, target, repeats=5000):
+def generate_many_traces(ts, init, target, save_traces=False, repeats=500):
     results = {}
-    start_time = time.perf_counter_ns()
+    time_total = 0
     for _ in range(repeats):
+        iter_start_time = time.perf_counter_ns()
         tr = tuple(draw_sample(ts, path_n, init, target))
-        if tr not in results:
+        time_total += time.perf_counter_ns() - iter_start_time
+        if save_traces and tr not in results:
             results[tr] = 1
-        else:
+        elif save_traces:
             results[tr] += 1
-    ns_taken_avg = (time.perf_counter_ns() - start_time) / repeats
+    ns_taken_avg = time_total / repeats
     # legible = '\n'.join([','.join([str(i) for i in k]) + f' - {v}' for k, v in results.items()])
-    legible = '\n'.join([f'#{i} - {v}' for i, v in enumerate(results.values(), start=1)])
-    print(legible)
+    #legible = '\n'.join([f'#{i} - {v}' for i, v in enumerate(results.values(), start=1)])
+    # print(legible)
     print(f'Taken {ms_str_any(ns_taken_avg)} per sample')
 
 
@@ -190,17 +193,18 @@ if __name__ == "__main__":
         
     else:
         # filename = "/home/jules/storm_sampler/storm-project-starter-cpp/sparse_model.drn" # dice model
-        filename = "/home/jules/conditioned_sampling/dtmcs/brp/brp_16_2.drn"
-        path_n = 16
-        repeats = 1000
-        tlabel = 'target'
+        filename = "/home/jules/conditioned_sampling/dtmcs/herman/herman3.drn"
+        path_n = 64
+        repeats = 100
+        tlabel = 'stable'
     
     parse_time = time.perf_counter_ns()
     model = read_drn(filename, target_label=tlabel)
     print(f'Finished parsing input: {ms_str_from(parse_time)}.')
     init = model['init']
-    target = model[tlabel]
-    transitions = model['trans']
+    target = model['target']
+    assert len(target) > 0, "Target states missing"
+    transitions = model['trans'].tocsr()
     dim = transitions.shape[0]
     
     print(f"Number of states: {transitions.shape[0]}")
