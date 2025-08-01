@@ -1,3 +1,6 @@
 prism_examples/
 dtmcs/*/og
 __pycache__/
+dtmcs/*/*.drn
+dtmcs/*/*.drdd
+dtmcs/logs/

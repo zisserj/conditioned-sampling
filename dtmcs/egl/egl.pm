@@ -202,7 +202,7 @@ formula kA = ( (b0=L  & b20=L)
 // labels
 label "knowB" = kB;
 label "knowA" = kA;
-label "target" = !"knowA" & "knowB";
+label "target" = !kA & kB;
 
 // reward structures
 

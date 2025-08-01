@@ -46,7 +46,7 @@ def read_drn(filename, target_label='target'):
     return {'init': initial, 'target': target, 'trans': transitions}
 
 if __name__ == '__main__':
-    filename = "/home/jules/storm_sampler/storm-project-starter-cpp/sparse_model.drn"
+    filename = "dtmcs/brp/brp_64_2.drn"
     res = read_drn(filename)
     print(res['initial'])
     print(res['target'])
