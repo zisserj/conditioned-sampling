@@ -1,4 +1,5 @@
 
+import os
 import time
 import numpy as np
 import scipy.sparse as sp
@@ -15,7 +16,7 @@ ms_str_any = lambda ns: f'{ns*1e-6:.6f}ms'
 # make T[x,y,z] = G[x,y] * G[y,z]
 def compute_mid_step(g):
     wide = sp.block_diag(g)
-    mult = g @ wide
+    mult = g.tocoo() @ wide.tocoo()
     # print(mult.data.nbytes + mult.indptr.nbytes + mult.indices.nbytes)
     return mult
 
@@ -25,14 +26,20 @@ def generate_power_mats(transition, length):
     for i in range(1, int(np.log2(length))):
         gi = gi @ gi
         gs.append(gi)
-    #     print(f"i = {i}")
-
     ts = []
     for gi in gs:
         ti = compute_mid_step(gi)
         ts.append(ti)
         # print(ti.sum(axis=1))
     return gs, ts
+
+def extend_power_mats(gs, ts, up_to):
+    for i in range(len(gs)-1, up_to-1):
+        gi = gs[i] @ gs[i]
+        gs.append(gi)
+    for i in range(len(ts), up_to):
+        ti = compute_mid_step(gs[i])
+        ts.append(ti)
 
 def ts_sanity_test(ts, path_n, init, target):
         # P=? [F={path_n} "target"]
@@ -105,6 +112,7 @@ def sample_conditioned(ti, init, target, w):
     w[mid] = bounds_idx[1]
     w[-1] = target[bounds_idx[2]]
 
+
 def sample_seq_step(ti, lo, hi, w):
     mid = int(np.mean([lo,hi]))
     opts = slice_csr_col(ti, w[lo], w[hi])
@@ -127,7 +135,7 @@ def draw_sample_init(gs, length, init, target):
     bin_rep = f'{length:b}'
     assert len(gs) >= len(bin_rep), f"Gs are missing for length {length}"
     reachable = [init]
-    prior_prob = [np.ones(dim)[init]/len(init)]
+    prior_prob = [np.ones(gs.shape[0])[init]/len(init)]
     for i, b in enumerate(reversed(bin_rep)): # lsb first
         if b == '1':
             # for all x in set prior_init:={possible states to be at after prev gi steps starting at init} 
@@ -164,6 +172,8 @@ def make_small_sample_count():
 def generate_many_traces(ts, init, target, save_traces=False, repeats=500):
     results = {}
     time_total = 0
+    rel_mat = slice_csr_full(ts[-1], init, target)
+    print(f"Property probability is {rel_mat.sum()}")
     for _ in range(repeats):
         iter_start_time = time.perf_counter_ns()
         res = draw_sample(ts, path_n, init, target)
@@ -182,9 +192,45 @@ def generate_many_traces(ts, init, target, save_traces=False, repeats=500):
     # print(legible)
     print(f'Taken {ms_str_any(ns_taken_avg)} per sample')
 
+def load_and_store(dirname, t0, length):
+    os.makedirs(dirname, exist_ok=True)
+    num_mats = int(np.log2(length))
+    gs, ts = [], []
+    mat_fname = dirname + '{}{}.npz'
+    for i in range(num_mats):
+        if os.path.exists(mat_fname.format('G', i)):
+            gs.append(sp.load_npz(mat_fname.format('G', i)))
+        else:
+            break
+        if os.path.exists(mat_fname.format('T', i)):
+            ts.append(sp.load_npz(mat_fname.format('T', i)))
+        else:
+            break
+    exist_gs = len(gs)
+    exist_ts = len(ts)
+    if exist_ts == num_mats:
+        print(f'Found all required mats.')
+        return gs, ts
+    elif exist_gs + exist_ts > 0:
+        print(f'Found prior mats: G({exist_gs-1}), T({exist_ts-1})')
+        precomp_time = time.perf_counter_ns()
+        extend_power_mats(gs, ts, num_mats)
+        print(f'Finished precomputing remaining functions: {ms_str_from(precomp_time)}.')
+    else:
+        precomp_time = time.perf_counter_ns()
+        gs, ts = generate_power_mats(t0, length)
+        print(f'Finished precomputing functions: {ms_str_from(precomp_time)}.')
+    for i in range(exist_gs, len(gs)):
+        mat_G = dirname + 'G{}.npz'
+        sp.save_npz(mat_G.format(i), gs[i])
+    for i in range(exist_ts, len(ts)):
+        mat_T = dirname + 'T{}.npz'
+        sp.save_npz(mat_T.format(i), ts[i])
+    print(f'Stored generated mats: G({len(gs)-1}), T({len(ts)-1})')
+    return gs, ts
+
 
 if __name__ == "__main__":
-    
     parser = True
     if parser:
         parser = argparse.ArgumentParser("Generates conditional samples of system via sparse matrices.")
@@ -193,19 +239,21 @@ if __name__ == "__main__":
         parser.add_argument("-repeats", help="Number of traces to generate", type=int, default=1000)
         parser.add_argument("-tlabel", help="Name of target label matching desired final states",
                             type=str, default='target')
+        parser.add_argument('--store', help="Store / try loading existing mats", action='store_true')
         args = parser.parse_args()
         filename = args.fname
         path_n = args.length
         repeats = args.repeats
         tlabel = args.tlabel
-        
+        store = args.store
     else:
-        # filename = "/home/jules/storm_sampler/storm-project-starter-cpp/sparse_model.drn" # dice model
-        filename = "/home/jules/conditioned_sampling/dtmcs/egl/egl_N_5_L_2.drn"
-        path_n = 8
+        # filename = "~/storm_sampler/storm-project-starter-cpp/sparse_model.drn" # dice model
+        filename = "/home/jules/conditioned_sampling/dtmcs/brp/brp_16_2.drn"
+        path_n = 32
         repeats = 100
         tlabel = 'target'
-    
+        store = True
+    print(f'Running parameters: fname={filename}, n={path_n}, repeats={repeats}, label={tlabel}, store={store}')
     parse_time = time.perf_counter_ns()
     model = read_drn(filename, target_label=tlabel)
     print(f'Finished parsing input: {ms_str_from(parse_time)}.')
@@ -213,15 +261,18 @@ if __name__ == "__main__":
     target = model['target']
     assert len(target) > 0, "Target states missing"
     transitions = model['trans'].tocsr()
-    dim = transitions.shape[0]
     
     print(f"Number of states: {transitions.shape[0]}")
     print(f"Number of transitions: {transitions.nnz}")
     
-    precomp_time = time.perf_counter_ns()
-    gs, ts = generate_power_mats(transitions, path_n)
-    print(f'Finished precomputing functions: {ms_str_from(precomp_time)}.')
-    
+    if store:
+        dirname = filename.replace('.drn', '/')
+        gs, ts = load_and_store(dirname, transitions, path_n)
+    else:
+        precomp_time = time.perf_counter_ns()
+        gs, ts = generate_power_mats(transitions, path_n)
+        print(f'Finished precomputing functions: {ms_str_from(precomp_time)}.')
+        
     # trace = draw_sample(ts, path_n, init, target)
     # print(f'Finished drawing 1 sample: {ms_from(precomp_time)} from parse')
 

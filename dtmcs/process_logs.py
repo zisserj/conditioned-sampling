@@ -8,19 +8,19 @@ pat = r"--- \w+\/([a-zA-Z]+)_([\S_]+).drn - (\d+) ---\
 [\w ]+states: ([\d.]+)\
 [\w ]+transitions: ([\d.]+)\
 [\w ]+functions: ([\d.]+)ms.\
-[#\d\-\s]+Taken ([\d.]+)ms per sample"
+[#\d\-\s]*Taken ([\d.]+)ms per sample"
 
 # model, params, length, parse, #states, #transitions, precompute, avg/sample
 
-fname = "/home/jules/conditioned_sampling/dtmcs/logs/mat_sampling-all-5863481.out"
+fname = "dtmcs/logs/mat_sampling-leader-5956070.out"
 with open(fname) as f:
     content = f.read()
 
 res = [] # length, states, transitinons, precomp, sample
 for match in re.finditer(pat, content):
     print(match.groups())
-    #res.append([match.group(i) for i in [1, 2, 3, 4, 5, 6, 7, 8]])
+    res.append([match.group(i) for i in [2, 3, 4, 5, 6, 7, 8]])
 
-# with open('dtmcs/brp_temp.csv', 'w') as f:
-#     f.write('length, states, trans, precomp, sample\n')
-#     f.writelines([(', '.join([p for p in line]) + '\n') for line in res])
+with open('dtmcs/leaders_mat_timing.csv', 'w') as f:
+    f.write('params, length, parsetime, states, trans, precomptime, sampletime\n')
+    f.writelines([(', '.join([p for p in line]) + '\n') for line in res])
