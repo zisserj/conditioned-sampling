@@ -173,7 +173,7 @@ def generate_many_traces(ts, init, target, save_traces=False, repeats=500):
     results = {}
     time_total = 0
     rel_mat = slice_csr_full(ts[-1], init, target)
-    print(f"Property probability is {rel_mat.sum()}")
+    print(f"Property probability is {rel_mat.sum()/len(init)}")
     for _ in range(repeats):
         iter_start_time = time.perf_counter_ns()
         res = draw_sample(ts, path_n, init, target)
