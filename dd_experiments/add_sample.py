@@ -2,7 +2,7 @@ import dd.cudd_add as _agd
 import math
 from time import time_ns
 
-from dd_from_drdd import load_adds_from_drdd
+from dd_experiments.add_from_drdd import load_adds_from_drdd
 
 
 def make_sample_add(manager):
