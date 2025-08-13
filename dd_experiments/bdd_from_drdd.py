@@ -19,18 +19,23 @@ import re
 
 
 def build_bdd(ctx, vars, nodes_iter, prob=True, denominator=1000):
-    ctx.denominator = 1000
-    # probability denominator is dropped in the bdd 
+    # probability denominator is implicit in the bdd 
     ctx.bdd.configure(reordering=False)
     ctx.declare(**{v: 'bool' for v in vars})
-    ctx.declare(p=(0,denominator))
+    if prob:
+        ctx.denominator = denominator
+        ctx.declare(p0=(0,denominator))
     temp_cache = [None]
     for s in nodes_iter:
         if s.group(1) == 'leaf':
             val = float(s.group(3))
+            
+             #v1< ((p * p_)/(dnm))) < v2
+            
+            
             if prob:
                 rounded_val = int(val * denominator)
-                node = ctx.add_expr(f'p={rounded_val}')
+                node = ctx.add_expr(f'p0={rounded_val}')
             else:
                 node = ctx.true if val == 1 else ctx.false
             temp_cache.append(node) # type: ignore
@@ -64,7 +69,7 @@ def rename_vars_xy(ctx, bdd_dict, vars):
     for g_name in bdd_dict.keys():
         g = bdd_dict[g_name]
         bdd_dict[g_name] = ctx.bdd.let(map, g)
-    ctx.vars = {k:v for k, v in ctx.vars.items() if k in ['x', 'y', 'z', 'p']}
+    ctx.vars = {k:v for k, v in ctx.vars.items() if k in ['x', 'y', 'z', 'p0']}
 
 def load_bdds_from_drdd(ctx, filename,
                         rename_vars=True, load_targets=['transitions'],

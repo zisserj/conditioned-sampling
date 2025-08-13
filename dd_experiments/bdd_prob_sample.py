@@ -10,94 +10,78 @@ bdd = _bdd.BDD()
 ctx = _fol.Context()
 ctx.bdd = bdd
 
-def make_basic_ts_bdd():
-    r"""
-    recieves fol context, defines
-    g0(x, y, c0) <=> g(x, y) = c0
-    returns:
-    g0 bdd, var_num vertices in ts
-    """
-    base = r'((x={}) /\ (y={}))'
-    vert_num = 4
-    trans = '''0, 1
-    0, 3
-    1, 1
-    1, 2
-    2, 2
-    3, 1'''.replace(' ', '')
-    ts = [l.split(',') for l in trans.split()]
-    exprs = [base.format(*vars) for vars in ts]
-    exprs_union = r'\/'.join(exprs)
+INITIAL_frac=100
 
-    ctx.declare(
-        x=(0,vert_num-1),
-        y=(0,vert_num-1),
-        z=(0,vert_num-1),
-        c0=(0,1),
-        g='bool',
-        g_='bool')
-    g = ctx.add_expr(exprs_union)
-    val_cond = ctx.add_expr(r'(c0=1 <=> g)')
-    ret = ctx.replace_with_bdd(val_cond, {'g': g})
-    #print(ctx.to_expr(ret))
-    return ret, vert_num
-
-file_bdds = load_bdds_from_drdd(ctx, "dd_experiments/die.drdd", load_targets=['initial', 'label target', 'transitions'])
+file_bdds = load_bdds_from_drdd(ctx, "dd_experiments/die.drdd",
+                                load_targets=['initial', 'label target', 'transitions'],
+                                denominator=INITIAL_frac)
 g0 = file_bdds['transitions']
-vert_num = ctx.vars['x']['dom'][1]
 
 def mul_gi(context, gi, i):
-    prob_domain = context['vars']['p']['dom']
-    vrs = {f'p_': prob_domain,
-           f'mid': prob_domain,
+    dnm = context.vars[f'p{i}']['dom'][1] # not a tight bound
+    vrs = {f'p{i}_': (0, dnm),
+           f'mul_p{i}': (0, dnm),
            'g':'bool',
            'g_':'bool'}
     context.declare(**vrs)
     rename = {'x': 'y',
               'y': 'z',
-           f'p': f'p_'}
+           f'p{i}': f'p{i}_'}
     gi_ = context.let(rename, gi)
-
-    mult_cond = context.add_expr(f'g /\\ g_ /\\ (mid = p * p_)')
-    mult_cond = context.replace_with_bdd(mult_cond, {'g': gi, 'g_': gi_})
-    exist = context.exist({f'c{i}', f'c{i}_'}, mult_cond) 
-    context.vars.pop(f'c{i}', None) # remove old c var
+    lower_b = context.add_expr(f'(mul_p{i} * {dnm} - {dnm//2})< (p{i} * p{i}_)') # <= (r_p*{dnm} + {dnm//2})')
+    upper_b = context.add_expr(f'(p{i} * p{i}_) <= (mul_p{i}*{dnm} + {dnm//2})')
+    mult_g = gi & gi_ & lower_b & upper_b
+    exist = context.exist({f'p{i}', f'p{i}_'}, mult_g)
     return exist
 
 
+t0 = mul_gi(ctx, g0, 0)
+gen_diff_mids = ctx.exist(['x', 'y', 'z'], t0)
+for i in ctx.pick_iter(gen_diff_mids, ['mul_p0']):
+    print(i)
 # print(ctx.support(h_tag))
 # print(bdd.support(h_tag))
 
-def sum_to_g(context, t, i, g_c_max):
+def sum_to_g(context, t, i):
     #hs = halfstep
     
+    vert_num = context.vars['x']['dom'][1]
     # identical every iteration
-    hs_vars = [f't_{j}' for j in range(vert_num)]
-    context.declare(**{h: 'bool' for h in hs_vars})
-    hs_ti_expr = '/\\'.join(hs_vars)
+    ts_vars = [f't_{j}' for j in range(vert_num)]
+    context.declare(**{h: 'bool' for h in ts_vars})
+    hs_ti_expr = context.add_expr('&'.join(ts_vars))
     
+    dnm = context.denominator
     hs_counts = [f'val_{j}' for j in range(vert_num)]
-    context.declare(**{val: (0, g_c_max**2) for val in hs_counts})
-    
-    context.declare(**{f'sum{i}':(0, (g_c_max**2)*vert_num)})
+    context.declare(**{val: (0, dnm) for val in hs_counts})
+    context.declare(**{f'sum{i}':(0, dnm*vert_num)})
+    context.declare(**{f'psum{j}':(0, dnm*(j+1)) for j in range(vert_num)})
 
-    hs_y = [context.let({f'mid{i}':hc}, t) for hc in hs_counts]
+    # create t(x, 0, z, v0) & t(x, 1, z, v1) & ...
+    hs_y = [context.let({f'mul_p{i}':hc}, t) for hc in hs_counts]
     hs_bdds = [context.let(dict(y=i), ybdd) for i, ybdd in enumerate(hs_y)]
+    yi_transitions = context.replace_with_bdd(hs_ti_expr, {ch: cbdd for (ch, cbdd) in zip(ts_vars, hs_bdds)})
     
-    hs_sum = 'sum{} = {}'.format(i, '+'.join(hs_counts))
-    hs_eq_vars = context.add_expr(f'{hs_ti_expr}  /\\ ({hs_sum})')
-    hs_eq_full = context.replace_with_bdd(hs_eq_vars, {ch: cbdd for (ch, cbdd) in zip(hs_vars, hs_bdds)})
-    g_ = context.exist(set(hs_counts), hs_eq_full)
     
-    # remove placeholder variables
-    [context.vars.pop(val, None) for val in hs_counts]
+    context.add_expr('psum0 = val_0')
+    cur_sum = yi_transitions
+    for j in range(0, vert_num):
+        if j == 0:
+            cur_sum = cur_sum & context.add_expr('psum0 = val_0')
+            cur_sum = context.exist({'val_0'} ,cur_sum)
+        else:
+            j_expr = context.add_expr(f'psum{j} = psum{j-1} + val_{j}')
+            cur_sum = j_expr & cur_sum
+            cur_sum = context.exist({f'psum{j-1}', f'val_{j}'} ,cur_sum) # don't care how current sum was reached            
+    g_ = context.replace(cur_sum, {f'psum{vert_num-1}': f'sum{i}'})
     return g_
 
+g1 = sum_to_g(ctx, t0, 0)
 
 def make_next_iter(context, next_i, gi, max_c_val):
     rename_vars = {f'c{next_i}': (0, max_c_val)}
     context.declare(**rename_vars)
-    
+    vert_num = context.vars['x']['dom'][1]
     
     new_ctx = _fol.Context()
     new_ctx.declare(x=(0,vert_num-1),
@@ -108,34 +92,6 @@ def make_next_iter(context, next_i, gi, max_c_val):
     new_g = context.let({f'sum{next_i-1}': f'c{next_i}', 'z':'y'}, gi)
     gi = context.copy(new_g, new_ctx)
     return (new_ctx, gi)
-
-
-# (1) find highest bit that results in true valuation of BDD
-# or (2) go over all true valuations of BDD to find largest c val
-# this implements (1)
-
-
-def simplfy_gs(context, k, g):
-  c_name = f'c{k}'
-  bits = context.vars[c_name]['bitnames']
-
-  bits_to_remove = []
-  for c_bit in reversed(bits): # switch to binary search
-      res = g.bdd.let({c_bit:True}, g)
-      # possibly use faster check here?
-      g.bdd.dump('c1_2_true.png', [res])
-      if res.count() > 0:
-          break
-      bits_to_remove.append(c_bit)
-  if len(bits_to_remove) == 0:
-      return g
-  g_trimmed = g.bdd.let({extra_bit: False for extra_bit in bits_to_remove}, g)
-  new_width = len(bits) - len(bits_to_remove)
-  context.vars[c_name]['bitnames'] = bits[:new_width]
-  context.vars[c_name]['width'] = new_width
-  context.vars[c_name]['dom'] = (0, 2**new_width -1)
-  return g_trimmed
-
 
 
 ctxs = [ctx]

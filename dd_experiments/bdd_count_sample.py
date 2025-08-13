@@ -72,9 +72,9 @@ def sum_to_g(context, t, i, g_c_max):
     #hs = halfstep
     
     # identical every iteration
-    hs_vars = [f't_{j}' for j in range(vert_num)]
-    context.declare(**{h: 'bool' for h in hs_vars})
-    hs_ti_expr = '/\\'.join(hs_vars)
+    ts_vars = [f't_{j}' for j in range(vert_num)]
+    context.declare(**{h: 'bool' for h in ts_vars})
+    hs_ti_expr = '&'.join(ts_vars)
     
     hs_counts = [f'val_{j}' for j in range(vert_num)]
     context.declare(**{val: (0, g_c_max**2) for val in hs_counts})
@@ -86,7 +86,7 @@ def sum_to_g(context, t, i, g_c_max):
     
     hs_sum = 'sum{} = {}'.format(i, '+'.join(hs_counts))
     hs_eq_vars = context.add_expr(f'{hs_ti_expr}  /\\ ({hs_sum})')
-    hs_eq_full = context.replace_with_bdd(hs_eq_vars, {ch: cbdd for (ch, cbdd) in zip(hs_vars, hs_bdds)})
+    hs_eq_full = context.replace_with_bdd(hs_eq_vars, {ch: cbdd for (ch, cbdd) in zip(ts_vars, hs_bdds)})
     g_ = context.exist(set(hs_counts), hs_eq_full)
     
     # remove placeholder variables

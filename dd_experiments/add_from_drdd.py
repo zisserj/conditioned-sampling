@@ -91,13 +91,15 @@ if __name__ == '__main__':
 
     
     #filename = "/home/jules/storm_sampler/storm-project-starter-cpp/symbolic_model.drdd"
-    filename = "/home/jules/dtmcs/brp/dd_16_2.drdd"
+    #filename = "/home/jules/dtmcs/brp/dd_16_2.drdd"
+    filename = "dd_experiments/die.drdd"
     targets = ['transitions', 'initial', 'label target']
     adds = load_adds_from_drdd(agd, filename,
                                     rename_vars=True, load_targets=targets)
     
     for name, add in adds.items():
         print(f'{name} has {add.dag_size} nodes')
+        agd.dump('add_view.png', [add])
         print(f'support = {add.support}')
     
     
