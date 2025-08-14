@@ -2,7 +2,7 @@ import dd.cudd_add as _agd
 import math
 from time import time_ns
 
-from dd_experiments.add_from_drdd import load_adds_from_drdd
+from add_from_drdd import load_adds_from_drdd
 
 
 def make_sample_add(manager):
@@ -29,7 +29,6 @@ def make_min_sample(manager):
     manager.declare(*var_names)
     u = manager.add_expr('x1 | x2 | y1 | y2')
     return u
-
 
 def process_count_structure(manager, g0, maxN):
     # g0 must have x1-xn, y1-yn vars
@@ -62,27 +61,25 @@ def process_count_structure(manager, g0, maxN):
         # t = g x g
         g_k_ = manager.let(map_mul, g_k)
         t_k = manager.apply('*', g_k, g_k_) # cuddGarbageCollect?
-
         ts.append(t_k)
-
         # g = Ey in t
         g_k_pre = manager.exist(y_var_names, t_k)
         g_k = manager.let(map_exists, g_k_pre)
+        gs.append(g_k)
         
-        # gs.append(g_k)
-        
-        print(f'Generated {k+1}: {time_ns()-last_t}')
+        print(f'Generated {k+1}: {(time_ns()-last_t)*1e-9}')
         last_t = time_ns()
 
-    return ts
+    return gs, ts
 
 
 manager = _agd.ADD()
 #g0 = make_min_sample(manager)
-filename = "/home/jules/dtmcs/brp/dd_16_2.drdd"
+filename = "dd_experiments/die.drdd"
+#filename = "dtmcs/brp/brp_16_2.drdd"
 adds = load_adds_from_drdd(manager, filename,
                                 rename_vars=True)
     
 g0 = adds['transitions']
-ts = process_count_structure(manager, g0, 8)
+gs, ts = process_count_structure(manager, g0, 8)
 print('done')

@@ -10,7 +10,7 @@ bdd = _bdd.BDD()
 ctx = _fol.Context()
 ctx.bdd = bdd
 
-INITIAL_frac=100
+INITIAL_frac=16
 
 file_bdds = load_bdds_from_drdd(ctx, "dd_experiments/die.drdd",
                                 load_targets=['initial', 'label target', 'transitions'],
@@ -34,14 +34,6 @@ def mul_gi(context, gi, i):
     exist = context.exist({f'p{i}', f'p{i}_'}, mult_g)
     return exist
 
-
-t0 = mul_gi(ctx, g0, 0)
-gen_diff_mids = ctx.exist(['x', 'y', 'z'], t0)
-for i in ctx.pick_iter(gen_diff_mids, ['mul_p0']):
-    print(i)
-# print(ctx.support(h_tag))
-# print(bdd.support(h_tag))
-
 def sum_to_g(context, t, i):
     #hs = halfstep
     
@@ -54,8 +46,8 @@ def sum_to_g(context, t, i):
     dnm = context.denominator
     hs_counts = [f'val_{j}' for j in range(vert_num)]
     context.declare(**{val: (0, dnm) for val in hs_counts})
-    context.declare(**{f'sum{i}':(0, dnm*vert_num)})
-    context.declare(**{f'psum{j}':(0, dnm*(j+1)) for j in range(vert_num)})
+    context.declare(**{f'sum{i}':(0, dnm)})
+    context.declare(**{f'psum{j}':(0, dnm) for j in range(vert_num)})
 
     # create t(x, 0, z, v0) & t(x, 1, z, v1) & ...
     hs_y = [context.let({f'mul_p{i}':hc}, t) for hc in hs_counts]
@@ -76,10 +68,9 @@ def sum_to_g(context, t, i):
     g_ = context.replace(cur_sum, {f'psum{vert_num-1}': f'sum{i}'})
     return g_
 
-g1 = sum_to_g(ctx, t0, 0)
 
-def make_next_iter(context, next_i, gi, max_c_val):
-    rename_vars = {f'c{next_i}': (0, max_c_val)}
+def make_next_iter(context, next_i, gi):
+    rename_vars = {f'p{next_i}': context.vars[f'p{next_i-1}']['dom']}
     context.declare(**rename_vars)
     vert_num = context.vars['x']['dom'][1]
     
@@ -88,41 +79,39 @@ def make_next_iter(context, next_i, gi, max_c_val):
                     y=(0,vert_num-1),
                     z=(0, vert_num-1))
     new_ctx.declare(**rename_vars)
+    new_ctx.denominator = context.denominator
     
-    new_g = context.let({f'sum{next_i-1}': f'c{next_i}', 'z':'y'}, gi)
+    new_g = context.let({f'sum{next_i-1}': f'p{next_i}', 'z':'y'}, gi)
     gi = context.copy(new_g, new_ctx)
     return (new_ctx, gi)
+
+
+t0 = mul_gi(ctx, g0, 0)
+g1 = sum_to_g(ctx, t0, 0)
 
 
 ctxs = [ctx]
 gs = [g0]
 ts = []
 
-gc_max = 1
 ctx_k = ctx
 g_k = g0
 last_t = time_ns()
-for k in range(0, 8):
+for k in range(0, 4):
     # t = g x g
-    t_k = mul_gi(ctx_k, g_k, k, gc_max)
+    t_k = mul_gi(ctx_k, g_k, k)
     ts.append(t_k)
 
     # sum t over y
-    pre_g_k = sum_to_g(ctx_k, t_k, k, gc_max)
-
-    gc_max = (gc_max**2) * vert_num
+    pre_g_k = sum_to_g(ctx_k, t_k, k)
 
     # rename vars for next iter
-    ctx_k, g_k = make_next_iter(ctx_k, k+1, pre_g_k, gc_max)
+    ctx_k, g_k = make_next_iter(ctx_k, k+1, pre_g_k)
     ctxs.append(ctx_k)
     
     print(f'Generated {k+1}: {(time_ns()-last_t)*1e-9}')
     last_t = time_ns()
-    # simplify varcount of g
-    g_k = simplfy_gs(ctx_k, k+1, g_k)
-    
-    print(f'Simplified {k+1}: {(time_ns()-last_t)*1e-9}')
-    last_t = time_ns()
-    
-    gc_max = ctx_k.vars[f'c{k+1}']['dom'][1]
+
     gs.append(g_k)
+
+print('done')
