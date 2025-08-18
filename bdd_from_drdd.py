@@ -18,24 +18,24 @@ import re
 '''
 
 
-def build_bdd(ctx, vars, nodes_iter, prob=True, denominator=1000):
+def build_bdd(ctx, vars, nodes_iter, prob=True, denominator=1000, elim_zero=False):
     # probability denominator is implicit in the bdd 
     ctx.bdd.configure(reordering=False)
     ctx.declare(**{v: 'bool' for v in vars})
     if prob:
         ctx.denominator = denominator
-        ctx.declare(p0=(0,denominator))
+        ctx.declare(p0=(0,denominator)) # inclusive
     temp_cache = [None]
     for s in nodes_iter:
         if s.group(1) == 'leaf':
             val = float(s.group(3))
-            
              #v1< ((p * p_)/(dnm))) < v2
-            
-            
             if prob:
                 rounded_val = int(val * denominator)
-                node = ctx.add_expr(f'p0={rounded_val}')
+                if (not elim_zero) or rounded_val > 0:
+                    node = ctx.add_expr(f'p0={rounded_val}')
+                else:
+                    node = ctx.false
             else:
                 node = ctx.true if val == 1 else ctx.false
             temp_cache.append(node) # type: ignore
@@ -63,7 +63,7 @@ def rename_vars_xy(ctx, bdd_dict, vars):
     for i, v in enumerate(vars):
         new_var = 'x' if i % 2 == 0 else 'y'
         map[v] = f'{new_var}_{i // 2}'
-    vert_domain = (0, 2**(len(vars)//2))
+    vert_domain = (0, 2**(len(vars)//2 -1)) # upper bound given amount of bits
     ctx.declare(**{v: vert_domain for v in ['x', 'y', 'z']})
     
     for g_name in bdd_dict.keys():
@@ -73,7 +73,7 @@ def rename_vars_xy(ctx, bdd_dict, vars):
 
 def load_bdds_from_drdd(ctx, filename,
                         rename_vars=True, load_targets=['transitions'],
-                        denominator=1000):
+                        denominator=1000, elim_zero=False):
     with open(filename, "r") as file:
         content = file.read()
 
@@ -94,9 +94,9 @@ def load_bdds_from_drdd(ctx, filename,
         size = int(match.group(3).strip())
         if name in load_targets:
             if name == "transitions":
-                res[name] = build_bdd(ctx, vars, nodes_iter, True, denominator)
+                res[name] = build_bdd(ctx, vars, nodes_iter, True, denominator, elim_zero=elim_zero)
             else:
-                res[name] = build_bdd(ctx, vars, nodes_iter, False)
+                res[name] = build_bdd(ctx, vars, nodes_iter, False, elim_zero=elim_zero)
     
     if rename_vars:
         rename_vars_xy(ctx, res, vars)
@@ -114,7 +114,6 @@ if __name__ == '__main__':
     targets = ['transitions', 'initial', 'label target', 'label one']
     bdds = load_bdds_from_drdd(ctx, filename, load_targets=targets)
 
-    # change everything but prob to use 0/1
     for name, bdd in bdds.items():
         print(f"{name}'s support is {ctx.support(bdd)}")
 

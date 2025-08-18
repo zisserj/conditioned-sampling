@@ -1,13 +1,14 @@
-
 import os
 import time
 import numpy as np
 import scipy.sparse as sp
 import itertools
-np.set_printoptions(precision=2, suppress=True)
-rng = np.random.default_rng()
 from drn_to_sparse import read_drn
 import argparse
+
+np.set_printoptions(precision=2, suppress=True)
+rng = np.random.default_rng()
+
 
 ms_str_from = lambda start_ns: f'{(time.perf_counter_ns()-start_ns)*1e-6:05.6f}ms'
 ms_str_any = lambda ns: f'{ns*1e-6:.6f}ms'
@@ -20,9 +21,9 @@ def compute_mid_step(g):
     # print(mult.data.nbytes + mult.indptr.nbytes + mult.indices.nbytes)
     return mult
 
-def generate_power_mats(transition, length):
-    gs = [transition]
-    gi = transition
+def compute_power_mats(trans, length):
+    gs = [trans]
+    gi = trans
     for i in range(1, int(np.log2(length))):
         gi = gi @ gi
         gs.append(gi)
@@ -125,9 +126,9 @@ def draw_sample(ts, length, init=[0], target=[]):
     no_states = sample_conditioned(ts[-1], init, target, w)
     if no_states:
         return no_states
-    for i in range(int(np.log2(path_n))-1, 0, -1):
+    for i in range(int(np.log2(length))-1, 0, -1):
         inc = np.power(2, i)
-        for j in range(0, path_n, inc):
+        for j in range(0, length, inc):
             sample_seq_step(ts[i-1], j, j + inc, w)
     return w
 
@@ -218,7 +219,7 @@ def load_and_store(dirname, t0, length):
         print(f'Finished precomputing remaining functions: {ms_str_from(precomp_time)}.')
     else:
         precomp_time = time.perf_counter_ns()
-        gs, ts = generate_power_mats(t0, length)
+        gs, ts = compute_power_mats(t0, length)
         print(f'Finished precomputing functions: {ms_str_from(precomp_time)}.')
     for i in range(exist_gs, len(gs)):
         mat_G = dirname + 'G{}.npz'
@@ -270,7 +271,7 @@ if __name__ == "__main__":
         gs, ts = load_and_store(dirname, transitions, path_n)
     else:
         precomp_time = time.perf_counter_ns()
-        gs, ts = generate_power_mats(transitions, path_n)
+        gs, ts = compute_power_mats(transitions, path_n)
         print(f'Finished precomputing functions: {ms_str_from(precomp_time)}.')
         
     # trace = draw_sample(ts, path_n, init, target)

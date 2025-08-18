@@ -22,4 +22,4 @@ rewards "coin_flips"
 	[] s<7 : 1;
 endrewards
 
-label "target" = (s=7) & (d=2);
+label "target" = (s=7) & (d=2 | d=1);
