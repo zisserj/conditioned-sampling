@@ -1,7 +1,7 @@
 import os
 import time
 import omega.symbolic.fol as _fol
-import dd.cudd as _bdd
+import dd.cudd as _bdd # type: ignore
 from bdd_from_drdd import load_bdds_from_drdd
 import numpy as np
 from line_profiler import profile
@@ -79,7 +79,7 @@ def make_next_iter_ctx(ctx, next_i, gi):
     return (new_ctx, gi)
 
 @profile
-def make_next_iter(ctx, next_i, gi):
+def rename_iter_vars(ctx, next_i, gi):
     rename_vars = {f'p{next_i}': ctx.vars[f'p{next_i-1}']['dom']}
     ctx.declare(**rename_vars)
     new_g = ctx.let({f'sum{next_i-1}': f'p{next_i}', 'z':'y'}, gi)
@@ -101,8 +101,7 @@ def compute_power_graphs(ctx, trans, length):
         if i < int(np.log2(length))-1:
             # sum t over y
             pre_g_k = sum_to_g(ctx, t_k, i)
-            # rename vars for next iter
-            g_k = make_next_iter(ctx, i+1, pre_g_k)
+            g_k = rename_iter_vars(ctx, i+1, pre_g_k)
             gs.append(g_k)
         
         print(f'Finished iteration {i}: {(time.time_ns()-last_t)*1e-9}')
@@ -158,8 +157,8 @@ def draw_sample(ctx, ts, length, init, target):
             sample_bdd_seq(ctx, ts[i-1], j, j + inc, w)
     return w
     
-def state_to_og_vars(vars, w, intval):
-    bits = f'{intval:0{w}b}'[::-1]
+def state_to_og_vars(vars, total_bits, intval):
+    bits = f'{intval:0{total_bits}b}'[::-1]
     idx= 0
     res = {}
     for name, num_bits in vars:

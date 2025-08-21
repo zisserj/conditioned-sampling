@@ -1,6 +1,6 @@
 from fileinput import filename
 from operator import add
-import dd.cudd_add as _agd
+import dd.cudd_add as _agd # type: ignore
 import re
 
 
@@ -17,6 +17,13 @@ import re
  * ],[dd1, dd2, dd3, ...,] -- and each the stored decision diagram.
 '''
 
+# less efficient than desired but doesnt have mem issues
+# order *does* matter unfort
+def let_single(manager, map, u):
+    res = u
+    for k, v in map.items():
+        res = manager.let({k:v}, res)
+    return res
 
 def build_add(agd, vars, nodes_iter):
     agd.configure(reordering=False)
@@ -54,8 +61,8 @@ def rename_vars_xy(agd, add_dict, vars):
         map[v] = f'{new_var}{i // 2}'
     agd.declare(*map.values())
     for g_name in add_dict.keys():
-        g = add_dict[g_name]
-        add_dict[g_name] = agd.let(map, g)
+        tmp = let_single(agd, map, add_dict[g_name])
+        add_dict[g_name] = tmp
     agd.vars = agd.vars - map.keys()
 
 def load_adds_from_drdd(agd, filename,
@@ -92,7 +99,7 @@ if __name__ == '__main__':
     
     #filename = "/home/jules/storm_sampler/storm-project-starter-cpp/symbolic_model.drdd"
     #filename = "/home/jules/dtmcs/brp/dd_16_2.drdd"
-    filename = "dd_experiments/die.drdd"
+    filename = "dtmcs/die.drdd"
     targets = ['transitions', 'initial', 'label target']
     adds = load_adds_from_drdd(agd, filename,
                                     rename_vars=True, load_targets=targets)
