@@ -4,3 +4,4 @@ __pycache__/
 dtmcs/*/*.drn
 dtmcs/*/*.drdd
 dtmcs/logs/
+dd_experiments/__pycache__/

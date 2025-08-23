@@ -14,7 +14,6 @@ ms_str_from = lambda start_ns: f'{(time.perf_counter_ns()-start_ns)*1e-6:05.6f}m
 ms_str_any = lambda ns: f'{ns*1e-6:.6f}ms'
 
 
-@profile
 def compute_mid_step(ctx, gi, i):
     dnm = ctx.vars[f'p{i}']['dom'][1] # not a tight bound
     vrs = {f'p{i}_': (0, dnm),
@@ -32,7 +31,7 @@ def compute_mid_step(ctx, gi, i):
     exist = ctx.exist({f'p{i}', f'p{i}_'}, mult_g)
     return exist
 
-@profile
+
 def sum_to_g(ctx, t, i):
     # currently vert_num is upper bound from number of bits
     vert_num = ctx.vars['x']['dom'][1]
@@ -78,14 +77,14 @@ def make_next_iter_ctx(ctx, next_i, gi):
     gi = ctx.copy(new_g, new_ctx)
     return (new_ctx, gi)
 
-@profile
+
 def rename_iter_vars(ctx, next_i, gi):
     rename_vars = {f'p{next_i}': ctx.vars[f'p{next_i-1}']['dom']}
     ctx.declare(**rename_vars)
     new_g = ctx.let({f'sum{next_i-1}': f'p{next_i}', 'z':'y'}, gi)
     return new_g
 
-@profile
+
 def compute_power_graphs(ctx, trans, length):
     gs = [trans]
     ts = []
@@ -145,7 +144,7 @@ def sample_bdd_seq(ctx, t, x_idx, z_idx, w):
     res = weighted_sample(opts, p_label)
     w[(x_idx+z_idx)//2] = res[1]
 
-@profile
+
 def draw_sample(ctx, ts, length, init, target):
     w = np.full(length+1, -1, dtype=int)
     no_states = sample_bdd_conditioned(ctx, ts[-1], init, target, w)

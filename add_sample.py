@@ -6,7 +6,7 @@ import numpy as np
 np.set_printoptions(precision=2, suppress=True)
 rng = np.random.default_rng()
 
-from add_from_drdd import load_adds_from_drdd, let_single
+from add_from_drdd import load_adds_from_drdd
 from bdd_prob_sample import state_to_og_vars
 
 
@@ -62,14 +62,14 @@ def compute_power_graphs(ctx, trans, length):
     last_t = time_ns()
     for i in range(0, int(np.log2(length))):
         # t = g x g
-        g_k_ = let_single(manager, map_mul, g_k)
+        g_k_ = manager.let(map_mul, g_k)
         t_k = manager.apply('*', g_k, g_k_) # cuddGarbageCollect?
         ts.append(t_k)
         
         if i < int(np.log2(length))-1:
             # g = Ey in t
             g_k_pre = manager.exist(map_next_iter.values(), t_k)
-            g_k = let_single(manager, map_next_iter, g_k_pre)
+            g_k = manager.let(map_next_iter, g_k_pre)
             gs.append(g_k)
         
         print(f'Finished iteration {i}: {(time_ns()-last_t)*1e-9}')
@@ -103,7 +103,7 @@ def weighted_sample(opts_iter):
 def sample_add_conditioned(ctx, t, start, target, w):
     rename_map = {f'x{i}': f'z{i}' for i in range(ctx.var_length)}
     manager = ctx.manager
-    target_rename = let_single(manager, rename_map, target)
+    target_rename = manager.let(rename_map, target)
     rel_states = t & start & target_rename
     opts = list(manager.pick_iter(rel_states, with_values=True))
     res = weighted_sample(opts)
