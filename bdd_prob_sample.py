@@ -1,5 +1,4 @@
-import os
-import time
+from time import perf_counter_ns
 import omega.symbolic.fol as _fol
 import dd.cudd as _bdd # type: ignore
 from bdd_from_drdd import load_bdds_from_drdd
@@ -10,7 +9,7 @@ np.set_printoptions(precision=2, suppress=True)
 rng = np.random.default_rng()
 import argparse
 
-ms_str_from = lambda start_ns: f'{(time.perf_counter_ns()-start_ns)*1e-6:05.6f}ms'
+ms_str_from = lambda start_ns: f'{(perf_counter_ns()-start_ns)*1e-6:05.6f}ms'
 ms_str_any = lambda ns: f'{ns*1e-6:.6f}ms'
 
 
@@ -90,7 +89,7 @@ def compute_power_graphs(ctx, trans, length):
     ts = []
     g_k = trans
 
-    last_t = time.time_ns()
+    last_t = perf_counter_ns()
     for i in range(0, int(np.log2(length))):
         # t = g x g
         t_k = compute_mid_step(ctx, g_k, i)
@@ -103,8 +102,8 @@ def compute_power_graphs(ctx, trans, length):
             g_k = rename_iter_vars(ctx, i+1, pre_g_k)
             gs.append(g_k)
         
-        print(f'Finished iteration {i}: {(time.time_ns()-last_t)*1e-9}')
-        last_t = time.time_ns()
+        # print(f'Finished iteration {i}: {(perf_counter_ns()-last_t)*1e-9}')
+        last_t = perf_counter_ns()
     return gs, ts
 
 def weighted_sample(opts_iter, p_var):
@@ -165,6 +164,26 @@ def state_to_og_vars(vars, total_bits, intval):
         idx += num_bits
     return res
 
+def generate_many_traces(ctx, ts, length, init, target, save_traces=False, repeats=500):
+    generated = []
+    time_total = 0
+    # todo: print probability of property
+    #print(f"Property probability is {rel_mat.sum()/len(init)}")
+    for _ in range(repeats):
+        iter_start_time = perf_counter_ns()
+        res = draw_sample(ctx, ts, length, init, target)
+        if type(res) == str:
+            print(res)
+            return
+        tr = tuple(res)
+        time_total += perf_counter_ns() - iter_start_time
+        if save_traces:
+            generated.append(tr)
+    ns_taken_avg = time_total / repeats
+    print(f'Taken {ms_str_any(ns_taken_avg)} per sample')
+    if save_traces:
+        return generated
+
 def print_gs(ctx, gs):
     no_zeros = [ctx.add_expr(f'p{i} > 0') for i in range(len(gs))]
     vars = [('s', 3), ('d', 3)]
@@ -178,23 +197,76 @@ def print_gs(ctx, gs):
             print(f'x = {x}, y={y}')
 
 if __name__ == "__main__":
+
+    parser = True
+    if parser:
+        parser = argparse.ArgumentParser("Generates conditional samples of system via Boolean Decision Diagrams.")
+        parser.add_argument("fname", help="Model exported as drdd file by storm", type=str)
+        parser.add_argument("length", help="Generated trace length (currently only supports powers of 2)", type=int)
+        parser.add_argument("precision", help="Number of bits used as denominator of all probabilies", type=int)
+        parser.add_argument("-repeats", help="Number of traces to generate", type=int, default=1000)
+        parser.add_argument("-tlabel", help="Name of target label matching desired final states",
+                            type=str, default='target')
+        parser.add_argument("-maxmem", help="Memory allocated to CUDD in GiB", type=int, default=1)
+        parser.add_argument('--store', help="Store / try loading existing mats", action='store_true')
+        args = parser.parse_args()
+        filename = args.fname
+        path_n = args.length
+        precision = args.precision
+        repeats = args.repeats
+        tlabel = args.tlabel
+        max_mem = args.maxmem
+        store = args.store
+    else:
+        filename = "dtmcs/brp/brp_16_2.drdd"
+        path_n = 8
+        precision = 5
+        repeats = 100
+        tlabel = 'target'
+        max_mem = 1
+        store = False
+    frac = 2**(precision) -1
+
+    print(f'Running parameters: fname={filename}, n={path_n}, precision={precision},\
+        repeats={repeats}, label={tlabel}, maxmem={max_mem}GiB, store={store}')
+    
     bdd = _bdd.BDD()
+    bdd.configure(max_memory = max_mem*(2**30))
     context = _fol.Context()
     context.bdd = bdd
-
-    INITIAL_frac=31
-    length = 8
-
-    file_bdds = load_bdds_from_drdd(context, "dtmcs/die.drdd",
-                                    load_targets=['initial', 'label target', 'transitions'],
-                                    denominator=INITIAL_frac)
     
-    g0 = file_bdds['transitions'] # & context.add_expr('p0 > 0')
-    init = file_bdds['initial']
-    target = file_bdds['label target']
-    gs, ts = compute_power_graphs(context, g0, length=length)
+    parse_time = perf_counter_ns()
+    model = load_bdds_from_drdd(context, filename, # type: ignore
+                                load_targets=['initial', 'transitions', f'label {tlabel}'],
+                                denominator=frac)
+    print(f'Finished parsing input: {ms_str_from(parse_time)}.')
+    init = model['initial']
+    target = model[f'label {tlabel}']
+    assert len(target) > 0, "Target states missing"
+    transitions = model['transitions']
     
-    w = draw_sample(context, ts, length, init, target)
-    print(w)
-    vars = [('s', 3), ('d', 3)]
-    print([state_to_og_vars(vars, 6, wi) for wi in w])
+    print(f"Number of variables per state: {context.vars['x']['width']}")
+    print(f"Size of BDD: {transitions.dag_size} nodes")
+
+
+    if store:
+        raise NotImplementedError("BDD storage is not yet supported")
+        # dirname = filename.replace('.drdd', '/')
+        # gs, ts = load_and_store(dirname, transitions, path_n)
+    else:
+        precomp_time = perf_counter_ns()
+        gs, ts = compute_power_graphs(context, transitions, path_n)
+        print(f'Finished precomputing functions: {ms_str_from(precomp_time)}.')
+        
+
+    w = draw_sample(context, ts, path_n, init, target)
+    res = generate_many_traces(context, ts, path_n,
+                init, target, save_traces=True,
+                repeats=10)
+    
+
+    # w = draw_sample(context, ts, path_n, init, target)
+    # print(w)
+    # vars = [('s', 3), ('d', 3)]
+    
+    # print([state_to_og_vars(vars, 6, wi) for wi in w])

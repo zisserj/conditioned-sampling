@@ -1,0 +1,58 @@
+// Exported by storm
+// Original model type: DTMC
+@type: DTMC
+@parameters
+
+@reward_models
+coin_flips 
+@nr_states
+13
+@nr_choices
+13
+@model
+state 0 [0] init
+	action 0 [1]
+		1 : 0.5
+		2 : 0.5
+state 1 [0]
+	action 0 [1]
+		3 : 0.5
+		4 : 0.5
+state 2 [0]
+	action 0 [1]
+		5 : 0.5
+		6 : 0.5
+state 3 [0]
+	action 0 [1]
+		1 : 0.5
+		7 : 0.5
+state 4 [0]
+	action 0 [1]
+		8 : 0.5
+		9 : 0.5
+state 5 [0]
+	action 0 [1]
+		10 : 0.5
+		11 : 0.5
+state 6 [0]
+	action 0 [1]
+		2 : 0.5
+		12 : 0.5
+state 7 [0] target
+	action 0 [0]
+		7 : 1
+state 8 [0] target
+	action 0 [0]
+		8 : 1
+state 9 [0]
+	action 0 [0]
+		9 : 1
+state 10 [0]
+	action 0 [0]
+		10 : 1
+state 11 [0]
+	action 0 [0]
+		11 : 1
+state 12 [0]
+	action 0 [0]
+		12 : 1

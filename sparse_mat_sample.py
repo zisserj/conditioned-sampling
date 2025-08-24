@@ -170,29 +170,26 @@ def make_small_sample_count():
     vals = list(ts_t0.values())
     return sp.coo_array((vals, (row, col)), shape=(dim, dim), dtype=float).tocsr()
 
-def generate_many_traces(ts, init, target, save_traces=False, repeats=500):
-    results = {}
+def generate_many_traces(ts, length, init, target, save_traces=False, repeats=500):
+    generated = []
     time_total = 0
     rel_mat = slice_csr_full(ts[-1], init, target)
     print(f"Property probability is {rel_mat.sum()/len(init)}")
     for _ in range(repeats):
         iter_start_time = time.perf_counter_ns()
-        res = draw_sample(ts, path_n, init, target)
+        res = draw_sample(ts, length, init, target)
         if type(res) == str:
             print(res)
             return
         tr = tuple(res)
         time_total += time.perf_counter_ns() - iter_start_time
-        if save_traces and tr not in results:
-            results[tr] = 1
-        elif save_traces:
-            results[tr] += 1
+        if save_traces:
+            generated.append(tr)
     ns_taken_avg = time_total / repeats
-    # legible = '\n'.join([','.join([str(i) for i in k]) + f' - {v}' for k, v in results.items()])
-    #legible = '\n'.join([f'#{i} - {v}' for i, v in enumerate(results.values(), start=1)])
-    # print(legible)
     print(f'Taken {ms_str_any(ns_taken_avg)} per sample')
-
+    if save_traces:
+        return generated
+    
 def load_and_store(dirname, t0, length):
     os.makedirs(dirname, exist_ok=True)
     num_mats = int(np.log2(length))
@@ -248,12 +245,11 @@ if __name__ == "__main__":
         tlabel = args.tlabel
         store = args.store
     else:
-        # filename = "~/storm_sampler/storm-project-starter-cpp/sparse_model.drn" # dice model
-        filename = "/home/jules/conditioned_sampling/dtmcs/brp/brp_16_2.drn"
-        path_n = 32
+        filename = "dtmcs/brp/brp_16_2.drn"
+        path_n = 8
         repeats = 100
         tlabel = 'target'
-        store = True
+        store = False
     print(f'Running parameters: fname={filename}, n={path_n}, repeats={repeats}, label={tlabel}, store={store}')
     parse_time = time.perf_counter_ns()
     model = read_drn(filename, target_label=tlabel)
@@ -277,7 +273,7 @@ if __name__ == "__main__":
     # trace = draw_sample(ts, path_n, init, target)
     # print(f'Finished drawing 1 sample: {ms_from(precomp_time)} from parse')
 
-    generate_many_traces(ts, init, target, repeats=repeats)
+    generate_many_traces(ts, path_n, init, target, repeats=repeats)
     
      
     
