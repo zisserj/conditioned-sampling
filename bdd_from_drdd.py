@@ -100,22 +100,29 @@ def load_bdds_from_drdd(ctx, filename,
     
     if rename_vars:
         rename_vars_xy(ctx, res, vars)
+        refine_domain(ctx, res['transitions'])
     return res
 
+def refine_domain(ctx, transitions):
+    nz = ctx.add_expr('p0>0')
+    states = nz & transitions
+    asgns = list(ctx.pick_iter(states))
+    xs = set([a['x'] for a in asgns])
+    ys = set([a['y'] for a in asgns])
+    ctx.x_dom = xs
+    ctx.y_dom = ys
 
 if __name__ == '__main__':
     bdd_manager = _bdd.BDD()
     ctx = _fol.Context()
     ctx.bdd = bdd_manager # use cudd instead of python impl
 
-
     #filename = "/home/jules/storm_sampler/storm-project-starter-cpp/symbolic_model.drdd"
-    filename = "dd_experiments/die.drdd"
+    filename = "dtmcs/die.drdd"
     targets = ['transitions', 'initial', 'label target', 'label one']
-    bdds = load_bdds_from_drdd(ctx, filename, load_targets=targets)
+    bdds = load_bdds_from_drdd(ctx, filename, load_targets=targets, denominator=4)
 
     for name, bdd in bdds.items():
         print(f"{name}'s support is {ctx.support(bdd)}")
-
 
     

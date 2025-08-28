@@ -61,6 +61,35 @@ def sum_to_g(ctx, t, i):
     g_ = ctx.replace(cur_sum, {f'psum{vert_num-1}': f'sum{i}'})
     return g_
 
+def sum_to_g_refined(ctx, t, i):
+    dnm = ctx.denominator
+    hs_counts = [f'val_{j}' for j in ctx.y_dom]
+    ctx.declare(**{val: (0, dnm) for val in hs_counts})
+    ctx.declare(**{f'sum{i}':(0, dnm)})
+    ctx.declare(**{f'psum{j}':(0, dnm) for j in ctx.y_dom})
+
+    # create t(x, 0, z, v0) & t(x, 1, z, v1) & ...
+    yi_transitions = ctx.true
+    for j in ctx.y_dom:
+        bdd_j = ctx.let({f'mul_p{i}':f'val_{j}'}, t)
+        bdd_j = ctx.let({'y':j}, bdd_j)
+        yi_transitions &= bdd_j #& ctx.add_expr(f'val_{i} > 0'))
+    
+    # iterate on sums: psum(i) = psum(i-1) + val(i)
+    cur_sum = yi_transitions
+    last_j = -1
+    for j in ctx.y_dom:
+        if last_j == -1:
+            cur_sum &= ctx.add_expr(f'psum{j} = val_{j}')
+            cur_sum = ctx.exist({f'val_{j}'} ,cur_sum)
+        else:
+            j_expr = ctx.add_expr(f'psum{j} = psum{last_j} + val_{j}')
+            cur_sum &= j_expr
+            cur_sum = ctx.exist({f'psum{last_j}', f'val_{j}'} ,cur_sum) # don't care how current sum was reached            
+        last_j = j
+    g_ = ctx.replace(cur_sum, {f'psum{last_j}': f'sum{i}'})
+    return g_
+
 def make_next_iter_ctx(ctx, next_i, gi):
     rename_vars = {f'p{next_i}': ctx.vars[f'p{next_i-1}']['dom']}
     ctx.declare(**rename_vars)
@@ -98,12 +127,14 @@ def compute_power_graphs(ctx, trans, length):
         # no need to sum G if its the last iteration
         if i < int(np.log2(length))-1:
             # sum t over y
-            pre_g_k = sum_to_g(ctx, t_k, i)
+            pre_g_k = sum_to_g_refined(ctx, t_k, i)
             g_k = rename_iter_vars(ctx, i+1, pre_g_k)
             gs.append(g_k)
         
         # print(f'Finished iteration {i}: {(perf_counter_ns()-last_t)*1e-9}')
         last_t = perf_counter_ns()
+    leave_vars = ['x','y','z']
+    ctx.vars = {k:v for k,v in ctx.vars.items() if k in leave_vars or k.startswith('p') or k.startswith('mul_p')}
     return gs, ts
 
 def weighted_sample(opts_iter, p_var):
@@ -219,8 +250,8 @@ if __name__ == "__main__":
         store = args.store
     else:
         filename = "dtmcs/brp/brp_16_2.drdd"
-        path_n = 8
-        precision = 5
+        path_n = 4
+        precision = 3
         repeats = 100
         tlabel = 'target'
         max_mem = 1
