@@ -3,6 +3,7 @@ import time
 import numpy as np
 import scipy.sparse as sp
 import itertools
+from add_sample import draw_sample
 from drn_to_sparse import read_drn
 import argparse
 
@@ -102,16 +103,17 @@ def weighted_idx_sample(mat):
 
 
 # assumes initial states have the same probability of being chosen
-def sample_conditioned(ti, init, target, w):
-    mid = (len(w))//2
+def sample_conditioned(ti, init, target, w, s=0, d=-1):
+    d = len(w)+d if (d < 0) else d
+    mid = (s+d)//2
     rel_mat = slice_csr_full(ti, init, target)
-    if rel_mat.max() == 0:
+    if np.isclose(rel_mat.max(), 0):
         return "No matching traces"
     # per_init_idx = np.sum(rel_mat, axis=(0, 1))
     bounds_idx = weighted_idx_sample(rel_mat)
-    w[0] = init[bounds_idx[0]]
+    w[s] = init[bounds_idx[0]]
     w[mid] = bounds_idx[1]
-    w[-1] = target[bounds_idx[2]]
+    w[d] = target[bounds_idx[2]]
 
 
 def sample_seq_step(ti, lo, hi, w):
@@ -121,33 +123,74 @@ def sample_seq_step(ti, lo, hi, w):
     w[mid] = asgn[0]
     # print(f'w[{mid}]={w[mid]}')
 
-def draw_sample(ts, length, init=[0], target=[]):
+def draw_sample_fill(ts, t_idx, w, start, end):
+    for i in range(t_idx, 0, -1):
+        inc = np.power(2, i)
+        for j in range(start, end, inc):
+            sample_seq_step(ts[i-1], j, j + inc, w)
+
+def draw_sample_simple(ts, length, init=[0], target=[]):
     w = np.full(length+1, -1, dtype=int)
     no_states = sample_conditioned(ts[-1], init, target, w)
     if no_states:
         return no_states
-    for i in range(int(np.log2(length))-1, 0, -1):
-        inc = np.power(2, i)
-        for j in range(0, length, inc):
-            sample_seq_step(ts[i-1], j, j + inc, w)
+    draw_sample_fill(ts, int(np.log2(length))-1, w, 0, length)
     return w
 
-def draw_sample_init(gs, length, init, target):
+def compute_nonpower_indices(gs, length, init):
     bin_rep = f'{length:b}'
     assert len(gs) >= len(bin_rep), f"Gs are missing for length {length}"
-    reachable = [init]
-    prior_prob = [np.ones(gs.shape[0])[init]/len(init)]
+    reachable = init
+    prior_prob = np.ones(gs[0].shape[0])[init]/len(init) # uniform assumed for initial states
+    steps_indices = []
+    # forward compute
     for i, b in enumerate(reversed(bin_rep)): # lsb first
         if b == '1':
             # for all x in set prior_init:={possible states to be at after prev gi steps starting at init} 
             # what is the probability of (having gotten to x) /\ (get to all y from x)
-            yi_from_x = gs[i][reachable[-1]].multiply(prior_prob[-1].reshape(-1,1))
+            yi_from_x = gs[i][reachable].multiply(prior_prob.reshape(-1,1))
             # sum over x to get specific probability to be at state y after prev + cur gi
             marginal_yi = yi_from_x.sum(axis=0)
-            #res = res/res.sum() # normalize to get probabilities (its all relative anyway)
-            reachable.append(marginal_yi.nonzero())
-            prior_prob.append(marginal_yi[reachable[-1]])
-    print(marginal_yi[target]) # type: ignore
+            marginal_yi = marginal_yi/marginal_yi.sum() # normalize to get probabilities (its all relative anyway)
+            
+            reachable = marginal_yi.nonzero()
+            prior_prob = marginal_yi[reachable]
+            steps_indices.append((i,
+                                  sp.csr_array(marginal_yi)))
+    return steps_indices
+
+def draw_sample_nonpower(gs, ts, length, init, target, indices):
+    w = np.full(length+1, -1, dtype=int)
+    # backwards compute - given init and target, select middle nodes
+    steps_iter = reversed(indices)
+    g_idx, rel_states = next(steps_iter)
+    try:
+        endpoint_sampled = target[weighted_idx_sample(rel_states[target])]
+    except:
+        return "No matching traces"
+    target_idx = length
+    start_idx = target_idx - (2**(g_idx))
+    for prev_g_idx, prev_state in steps_iter:
+        # do highest order sampling
+        sample_conditioned(ts[g_idx-1], prev_state.nonzero()[0],
+                        endpoint_sampled, w, s=start_idx, d=target_idx)
+        # "recursive" fill
+        draw_sample_fill(ts, g_idx-1, w, start_idx, target_idx)
+        g_idx = prev_g_idx
+        endpoint_sampled = [w[start_idx]]
+        target_idx = start_idx
+        start_idx -= 2**g_idx
+    if g_idx > 0: # last step is at least 2
+        sample_conditioned(ts[g_idx], init,
+                        endpoint_sampled, w, s=start_idx, d=target_idx)
+        # "recursive" fill
+        draw_sample_fill(ts, g_idx, w, start_idx, target_idx)
+    else: # last step is exactly 1
+        opts = sp.coo_array(gs[0][init, endpoint_sampled])
+        init_idx = weighted_idx_sample(opts)
+        w[0] = init[init_idx][0] # need to include g0 in args?
+    return w
+
 
 def make_small_sample():
     dim = 4
@@ -170,18 +213,25 @@ def make_small_sample_count():
     vals = list(ts_t0.values())
     return sp.coo_array((vals, (row, col)), shape=(dim, dim), dtype=float).tocsr()
 
-def generate_many_traces(ts, length, init, target, save_traces=False, repeats=500):
+def generate_many_traces(gs, ts, length, init, target, save_traces=False, repeats=500):
+    if np.log2(path_n) == np.floor(np.log2(path_n)):
+        draw = lambda: draw_sample_simple(ts, length, init, target)
+    else:
+        if len(gs) < np.log2(path_n):
+            extend_power_mats(gs, ts, len(gs)+1)
+        g_steps = compute_nonpower_indices(gs, length, init)
+        draw = lambda: draw_sample_nonpower(gs, ts, length, init, target, g_steps)
     generated = []
     time_total = 0
     rel_mat = slice_csr_full(ts[-1], init, target)
     print(f"Property probability is {rel_mat.sum()/len(init)}")
     for _ in range(repeats):
         iter_start_time = time.perf_counter_ns()
-        res = draw_sample(ts, length, init, target)
+        res = draw()
         if type(res) == str:
             print(res)
             return
-        tr = tuple(res)
+        tr = tuple(res.tolist())
         time_total += time.perf_counter_ns() - iter_start_time
         if save_traces:
             generated.append(tr)
@@ -230,6 +280,7 @@ def load_and_store(dirname, t0, length):
 
 if __name__ == "__main__":
     parser = True
+    # python sparse_mat_sample.py dtmcs/die.drn 8 -repeats 10
     if parser:
         parser = argparse.ArgumentParser("Generates conditional samples of system via sparse matrices.")
         parser.add_argument("fname", help="Model exported as drn file by storm", type=str)
@@ -245,7 +296,7 @@ if __name__ == "__main__":
         tlabel = args.tlabel
         store = args.store
     else:
-        filename = "dtmcs/brp/brp_16_2.drn"
+        filename = "dtmcs/die.drn"
         path_n = 8
         repeats = 100
         tlabel = 'target'
@@ -269,11 +320,9 @@ if __name__ == "__main__":
         precomp_time = time.perf_counter_ns()
         gs, ts = compute_power_mats(transitions, path_n)
         print(f'Finished precomputing functions: {ms_str_from(precomp_time)}.')
-        
-    # trace = draw_sample(ts, path_n, init, target)
-    # print(f'Finished drawing 1 sample: {ms_from(precomp_time)} from parse')
-
-    generate_many_traces(ts, path_n, init, target, repeats=repeats)
     
+    
+    # print(f'Finished drawing 1 sample: {ms_from(precomp_time)} from parse')
+    res = generate_many_traces(gs, ts, path_n, init, target, repeats=repeats)
      
     
