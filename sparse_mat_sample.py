@@ -17,8 +17,8 @@ ms_str_any = lambda ns: f'{ns*1e-6:.6f}ms'
 
 # make T[x,y,z] = G[x,y] * G[y,z]
 def compute_mid_step(g):
-    wide = sp.block_diag(g)
-    mult = g.tocoo() @ wide.tocoo()
+    wide = sp.block_diag(g, format='csr')
+    mult = g @ wide
     # print(mult.data.nbytes + mult.indptr.nbytes + mult.indices.nbytes)
     return mult
 
@@ -279,12 +279,12 @@ def load_and_store(dirname, t0, length):
 
 
 if __name__ == "__main__":
-    parser = True
+    parser = False
     # python sparse_mat_sample.py dtmcs/die.drn 8 -repeats 10
     if parser:
         parser = argparse.ArgumentParser("Generates conditional samples of system via sparse matrices.")
         parser.add_argument("fname", help="Model exported as drn file by storm", type=str)
-        parser.add_argument("length", help="Generated trace length (currently only supports powers of 2)", type=int)
+        parser.add_argument("length", help="Generated trace length", type=int)
         parser.add_argument("-repeats", help="Number of traces to generate", type=int, default=1000)
         parser.add_argument("-tlabel", help="Name of target label matching desired final states",
                             type=str, default='target')
@@ -297,7 +297,7 @@ if __name__ == "__main__":
         store = args.store
     else:
         filename = "dtmcs/die.drn"
-        path_n = 8
+        path_n = 64
         repeats = 100
         tlabel = 'target'
         store = False

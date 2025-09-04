@@ -23,7 +23,7 @@ def sample_trace(sim, length, target):
 
 def sample_relevant_traces(count, max_r, sim, length, target):
     traces = []
-    for i in range(max_r):
+    for i in range(1, max_r+1):
         tr_attempt = sample_trace(sim, length, target)
         if len(tr_attempt) > 0:
             traces.append(tr_attempt)
@@ -32,8 +32,8 @@ def sample_relevant_traces(count, max_r, sim, length, target):
     return i, traces # type: ignore
 
 if __name__ == "__main__":
-    parser = False
-    # python sim_sample.py dtmcs/die.drn 8 -repeats 10
+    parser = True
+    # python sim_sample.py dtmcs/die.pm 8 -repeats 10
     if parser:
         parser = argparse.ArgumentParser("Generates trace samples of system Storm.")
         parser.add_argument("fname", help="Model exported as drn file by storm", type=str)
@@ -41,33 +41,34 @@ if __name__ == "__main__":
         parser.add_argument("-repeats", help="Number of traces to generate ending at target", type=int, default=100)
         parser.add_argument("-tlabel", help="Name of target label matching desired final states",
                             type=str, default='target')
-        parser.add_argument('--max-repeats', help="Maximum number of all traces generated, defaults to repeats*100")
+        parser.add_argument('--max-repeats', type=int, help="Maximum number of all traces generated, defaults to repeats*100")
+        parser.add_argument('--const-str', help="Assignment to undeclared constants", type=str)
+        
         args = parser.parse_args()
         filename = args.fname
         path_n = args.length
         repeats = args.repeats
         tlabel = args.tlabel
         max_repeats = args.max_repeats
-        
+        const_str = args.const_str
     else:
         filename = "dtmcs/nand/nand.pm"
         path_n = 128
         repeats = 100
         tlabel = 'target'
         max_repeats = None
-    
+        const_str=None
     if not max_repeats:
         max_repeats = repeats * 100
     
     print(f'Running parameters: fname={filename}, n={path_n}, repeats={repeats}, label={tlabel}, max_repeats={max_repeats}')
     parse_time = time.perf_counter_ns()
     
-    const_str = "N=20,K=4"
-    defs = stormpy.parse_constants_string(const_str)
     prism_program = stormpy.parse_prism_program(filename)
     if const_str:
-        asgn = stormpy.parse_constants_string(prism_program.expression_manager, const_str)
-        prism_program = prism_program.define_constants(asgn)
+        desc = stormpy.SymbolicModelDescription(prism_program)
+        const_asgn = desc.parse_constant_definitions(const_str)
+        prism_program = desc.instantiate_constants(const_asgn).as_prism_program()
     model = stormpy.build_model(prism_program)
     sim = stormpy.simulator.create_simulator(model)
     assert sim
@@ -76,6 +77,7 @@ if __name__ == "__main__":
     sim_time = time.perf_counter_ns()
     attempts, res = sample_relevant_traces(repeats, max_repeats, sim, path_n, tlabel)
     final_sim_time = time.perf_counter_ns() - sim_time
-    if attempts == max_repeats:
-        print(f"Failed to sample {repeats} (got {len(res)}) conditional traces in {max_repeats} attempts")
-    print(f'Taken {ms_str_any(final_sim_time/repeats)} per sample')
+    if attempts >= max_repeats:
+        print(f"Failed to sample {repeats} conditional traces in {max_repeats} attempts (got {len(res)}) in {ms_str_any(final_sim_time)}.")
+    if len(res) > 0:
+        print(f'Taken {ms_str_any(final_sim_time/len(res))} per sample')
