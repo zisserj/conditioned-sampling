@@ -42,7 +42,7 @@ if __name__ == "__main__":
         parser.add_argument("-tlabel", help="Name of target label matching desired final states",
                             type=str, default='target')
         parser.add_argument('--max-repeats', type=int, help="Maximum number of all traces generated, defaults to repeats*100")
-        parser.add_argument('--const-str', help="Assignment to undeclared constants", type=str)
+        parser.add_argument('--constants', help="Assignment to undeclared constants", type=str)
         
         args = parser.parse_args()
         filename = args.fname
@@ -50,7 +50,7 @@ if __name__ == "__main__":
         repeats = args.repeats
         tlabel = args.tlabel
         max_repeats = args.max_repeats
-        const_str = args.const_str
+        const_str = args.constants
     else:
         filename = "dtmcs/nand/nand.pm"
         path_n = 128
