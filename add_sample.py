@@ -74,7 +74,7 @@ def compute_power_graphs(ctx, trans, length):
             g_k_pre = manager.exist(map_next_iter.values(), t_k)
             g_k = manager.let(map_next_iter, g_k_pre)
             gs.append(g_k)
-        
+        #print(manager.statistics())
         # print(f'Finished iteration {i}: {(perf_counter_ns()-last_t)*1e-9}')
         last_t = perf_counter_ns()
     return gs, ts
@@ -185,26 +185,23 @@ if __name__ == "__main__":
         parser.add_argument("-repeats", help="Number of traces to generate", type=int, default=1000)
         parser.add_argument("-tlabel", help="Name of target label matching desired final states",
                             type=str, default='target')
-        parser.add_argument("-maxmem", help="Memory allocated to CUDD in GiB", type=int, default=1)
         parser.add_argument('--store', help="Store / try loading existing mats", action='store_true')
         args = parser.parse_args()
         filename = args.fname
         path_n = args.length
         repeats = args.repeats
         tlabel = args.tlabel
-        max_mem = args.maxmem
         store = args.store
     else:
         filename = "dtmcs/brp/brp_N_16_MAX_4.drdd"
-        path_n = 16
+        path_n = 64
         repeats = 100
         tlabel = 'target'
-        max_mem = 1
         store = False
     print(f'Running parameters: fname={filename}, n={path_n}, repeats={repeats}, label={tlabel}, store={store}')
     
     manager = _agd.ADD()
-    manager.configure(max_memory = max_mem*(2**30), garbage_collection=True)
+    manager.configure(max_growth=1.5)
     context = lambda: None # (required to assign attributes)
     context.manager = manager # type: ignore
     
@@ -230,6 +227,6 @@ if __name__ == "__main__":
         print(f'Finished precomputing functions: {ms_str_from(precomp_time)}.')
         
     res = generate_many_traces(context, ts, path_n,
-                init, target, save_traces=True,
-                repeats= 10)
+                init, target, save_traces=False,
+                repeats=repeats)
     
