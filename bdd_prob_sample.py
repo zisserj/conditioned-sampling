@@ -3,7 +3,7 @@ import omega.symbolic.fol as _fol
 import dd.cudd as _bdd # type: ignore
 from bdd_from_drdd import load_bdds_from_drdd
 import numpy as np
-from line_profiler import profile
+#from line_profiler import profile
 
 np.set_printoptions(precision=2, suppress=True)
 rng = np.random.default_rng()

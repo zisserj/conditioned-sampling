@@ -8,7 +8,7 @@
 #SBATCH --partition main			### specify partition name where to run a job. change only if you have a matching qos!! main: all nodes; gtx1080: 1080 gpu card nodes; rtx2080: 2080 nodes; teslap100: p100 nodes; titanrtx: titan nodes
 #SBATCH --time 0-20:30:00			### limit the time of job running. Make sure it is not greater than the partition time limit!! Format: D-H:MM:SS
 #SBATCH --job-name nand		### name of the job
-#SBATCH --output logs/mat_sampling-nand-%J.out			### output log for running job - %J for job number
+#SBATCH --output logs/add_sampling-nand-%J.out			### output log for running job - %J for job number
 #SBATCH --gpus=0				### number of GPUs, allocating more than 1 requires IT team's permission. Example to request 3090 gpu:
 #SBATCH --gpus=gtx_1080:1
 # Note: the following 4 lines are commented out
@@ -28,16 +28,15 @@ echo -e "SLURM_JOB_NODELIST:\t" $SLURM_JOB_NODELIST "\n\n"
 module load anaconda				### load anaconda module (must be present when working with conda environments)
 source activate conditioned_sampling				### activate a conda environment, replace my_env with your conda environment
 
-script="$HOME/conditioned/graph-sampling/sparse_mat_sample.py"
-dir=nand;
+script="$HOME/conditioned/graph-sampling/add_sample.py"
+dir=herman;
 
-for dir in $dir; do # egl herman leader_sync nand; do
-  for file in "$dir"/*.drn; do
+for dir in $dir; do # brp egl herman leader_sync nand; do
+  for file in "$dir"/*.drdd; do
     fdir=${file%.*}
-    rm "$fdir"/*
     for length in 8 16 32 64 128; do
         echo "--- $file - $length ---"
-        python $script "$file" $length -repeats 500 -tlabel target --store
+        python $script "$file" $length -repeats 500 -tlabel stable
     done
   done
 done

@@ -3,5 +3,6 @@ dtmcs/*/og
 __pycache__/
 dtmcs/*/*.drn
 dtmcs/*/*.drdd
+dtmcs/*/*/
 dtmcs/logs/
 dd_experiments/__pycache__/
