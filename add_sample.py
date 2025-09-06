@@ -98,8 +98,6 @@ def weighted_sample(opts_iter):
     coords, weights = zip(*opts_iter)
     #coords = np.array(coords)
     weights = np.array(weights,dtype=float)
-    if len(weights) == 0:
-        return "No matching traces"
     weights /= weights.sum()
     return rng.choice(coords, axis=0, p=weights)
 
@@ -109,10 +107,10 @@ def sample_add_conditioned(ctx, t, start, target, w):
     target_rename = manager.let(rename_map, target)
     rel_states = t & start & target_rename
     opts = list(manager.pick_iter(rel_states, with_values=True))
+    if len(opts) == 0:
+        return "No matching traces"
     res = weighted_sample(opts)
     res_ints = asgn_to_state(res, ctx.var_length, 'xyz')
-    if type(res) == str:
-        return res
     w[0] = res_ints[0]
     w[len(w)//2] = res_ints[1]
     w[-1] = res_ints[2]
@@ -197,8 +195,8 @@ if __name__ == "__main__":
         max_mem = args.maxmem
         store = args.store
     else:
-        filename = "dtmcs/brp/brp_16_2.drdd"
-        path_n = 8
+        filename = "dtmcs/brp/brp_N_16_MAX_4.drdd"
+        path_n = 16
         repeats = 100
         tlabel = 'target'
         max_mem = 1
@@ -206,7 +204,7 @@ if __name__ == "__main__":
     print(f'Running parameters: fname={filename}, n={path_n}, repeats={repeats}, label={tlabel}, store={store}')
     
     manager = _agd.ADD()
-    manager.configure(max_memory = max_mem*(2**30))
+    manager.configure(max_memory = max_mem*(2**30), garbage_collection=True)
     context = lambda: None # (required to assign attributes)
     context.manager = manager # type: ignore
     
