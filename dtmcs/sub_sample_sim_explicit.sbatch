@@ -11,7 +11,7 @@
 
 #SBATCH --partition main                        ### specify partition name where to run a job. change only if you have a matching qos!! main: all nodes; gtx1080: 1080 gpu card nodes; rtx2080: 2080 nodes; teslap100: p100 nodes; titanrtx: titan nodes
 #SBATCH --time 0-20:30:00                       ### limit the time of job running. Make sure it is not greater than the partition time limit!! Format: D-H:MM:SS
-#SBATCH --job-name nand ### name of the job
+#SBATCH --job-name herman ### name of the job
 #SBATCH --output logs/sim_sampling-%x-%J.out                    ### output log for running job - %J for job number
 #SBATCH --gpus=gtx_1080:1
 # Note: the following 4 lines are commented out
@@ -40,7 +40,7 @@ fi
 
 input_file="$1"
 script="$HOME/conditioned/graph-sampling/sim_sample.py"
-label=target;
+label=stable;
 
 if [ ! -f "$input_file" ]; then
     echo "Error: File '$input_file' not found"
@@ -53,8 +53,9 @@ do
     if [ -n "$line" ] && [ "${line#\#}" = "$line" ]; then
         # Extract first and third words from the line
         set -- $line
-	    dir_name=${1//.pm/}
-        for length in 8 16 32 64 128; do
+	dir_name=$(echo $1 | sed 's/[0-9].*//')
+	dir_name="${dir_name//.pm/}"
+	for length in 8 16 32 64 128; do
             echo "--- $line - $length ---"
             python $script "$dir_name"/$line $length -repeats 500 -tlabel "$label"
         done
