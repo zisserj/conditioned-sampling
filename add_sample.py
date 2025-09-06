@@ -231,8 +231,6 @@ if __name__ == "__main__":
         gs, ts = compute_power_graphs(context, transitions, path_n)
         print(f'Finished precomputing functions: {ms_str_from(precomp_time)}.')
         
-
-    w = draw_sample(context, ts, path_n, init, target)
     res = generate_many_traces(context, ts, path_n,
                 init, target, save_traces=True,
                 repeats= 10)
