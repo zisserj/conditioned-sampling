@@ -146,7 +146,7 @@ def compute_nonpower_indices(gs, length, init):
     # forward compute
     for i, b in enumerate(reversed(bin_rep)): # lsb first
         if b == '1':
-            # for all x in set prior_init:={possible states to be at after prev gi steps starting at init} 
+            # for all x in set prior_prop:={possible states to be at after prev gi steps starting at init} 
             # what is the probability of (having gotten to x) /\ (get to all y from x)
             yi_from_x = gs[i][reachable].multiply(prior_prob.reshape(-1,1))
             # sum over x to get specific probability to be at state y after prev + cur gi
@@ -214,17 +214,22 @@ def make_small_sample_count():
     return sp.coo_array((vals, (row, col)), shape=(dim, dim), dtype=float).tocsr()
 
 def generate_many_traces(gs, ts, length, init, target, save_traces=False, repeats=500):
+    init = np.array(init)
+    target = np.array(target)
     if np.log2(path_n) == np.floor(np.log2(path_n)):
         draw = lambda: draw_sample_simple(ts, length, init, target)
+        rel_mat = slice_csr_full(ts[-1], init, target)
+        print(f"Property probability is {rel_mat.sum()/len(init)}")
     else:
         if len(gs) < np.log2(path_n):
             extend_power_mats(gs, ts, len(gs)+1)
         g_steps = compute_nonpower_indices(gs, length, init)
         draw = lambda: draw_sample_nonpower(gs, ts, length, init, target, g_steps)
+        rel_mat = g_steps[-1][1][target]
+        print(f"Property probability is {rel_mat.sum()/len(init)}")
     generated = []
     time_total = 0
-    rel_mat = slice_csr_full(ts[-1], init, target)
-    print(f"Property probability is {rel_mat.sum()/len(init)}")
+    
     for _ in range(repeats):
         iter_start_time = time.perf_counter_ns()
         res = draw()
@@ -279,7 +284,7 @@ def load_and_store(dirname, t0, length):
 
 
 if __name__ == "__main__":
-    parser = False
+    parser = True
     # python sparse_mat_sample.py dtmcs/die.drn 8 -repeats 10
     if parser:
         parser = argparse.ArgumentParser("Generates conditional samples of system via sparse matrices.")
@@ -297,7 +302,7 @@ if __name__ == "__main__":
         store = args.store
     else:
         filename = "dtmcs/die.drn"
-        path_n = 64
+        path_n = 10
         repeats = 100
         tlabel = 'target'
         store = False
@@ -309,7 +314,7 @@ if __name__ == "__main__":
     target = model['target']
     assert len(target) > 0, "Target states missing"
     transitions = model['trans'].tocsr()
-    
+
     print(f"Number of states: {transitions.shape[0]}")
     print(f"Number of transitions: {transitions.nnz}")
     
