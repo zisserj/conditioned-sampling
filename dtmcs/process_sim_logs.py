@@ -18,18 +18,24 @@ for fname in fnames:
     with open(head+fname) as f:
         content += f.read()
 
+with open('test.txt', 'w') as f:
+    f.write(content)
+    
 res = [] # model, params, length, output
-for match in re.finditer(pat, content):
-    print(match.groups())
-    name, params_a, params_b, length, repeats, setup_time, sample_time, suc_count, total_time  = match.groups()
-    params = params_a if params_a else params_b.replace(',', ' ')
-    if sample_time:
-        suc_count = repeats
-        total_time = "-1"
-    else:
-        sample_time = "-1"
-    res.append(','.join([name, params, length, setup_time,
-                         sample_time, suc_count, total_time]))
+for fname in fnames:
+    with open(head+fname) as f:
+        content = f.read()
+    for match in re.finditer(pat, content):
+        print(match.groups())
+        name, params_a, params_b, length, repeats, setup_time, sample_time, suc_count, total_time  = match.groups()
+        params = params_a if params_a else params_b.replace(',', ' ')
+        if sample_time:
+            suc_count = repeats
+            total_time = "-1"
+        else:
+            sample_time = "-1"
+        res.append(','.join([name, params, length, setup_time,
+                            sample_time, suc_count, total_time]))
 
 print(res)
 fname = 'dtmcs/sim_timing.csv'

@@ -24,26 +24,29 @@ for fname in fnames:
         content += f.read()
 
 res = [] # model, params, length, output
-for match in re.finditer(logs_param, content):
-    name, params, length, output_content = match.groups()
-    output_type = "ok"
-    parsetime = varnum = addsize = precomptime = tracetime = '0'
-    if "Segmentation fault" in output_content:
-        output_type = "segfault"
-    elif "CANCELLED" in output_content:
-        output_type = "timeout"
-    elif "CUDD appears to have run out of memory." in output_content:
-        output_type = "mem"
-    else:
-        try:
-            stats = re.findall(output_pat, output_content)[0]
-            parsetime, varnum, addsize, precomptime, tracetime = stats
-            if not tracetime:
-                tracetime = "-1"
-        except:
-            print("Issue processing", name, params, length, " : ", output_content)
-    res.append(','.join([name, params, length, output_type,
-                         parsetime, varnum, addsize, precomptime, tracetime]))
+for fname in fnames:
+    with open(head+fname) as f:
+        content = f.read()
+    for match in re.finditer(logs_param, content):
+        name, params, length, output_content = match.groups()
+        output_type = "ok"
+        parsetime = varnum = addsize = precomptime = tracetime = '0'
+        if "Segmentation fault" in output_content:
+            output_type = "segfault"
+        elif "CANCELLED" in output_content:
+            output_type = "timeout"
+        elif "CUDD appears to have run out of memory." in output_content:
+            output_type = "mem"
+        else:
+            try:
+                stats = re.findall(output_pat, output_content)[0]
+                parsetime, varnum, addsize, precomptime, tracetime = stats
+                if not tracetime:
+                    tracetime = "-1"
+            except:
+                print("Issue processing", name, params, length, " : ", output_content)
+        res.append(','.join([name, params, length, output_type,
+                            parsetime, varnum, addsize, precomptime, tracetime]))
 
 fname = 'dtmcs/add_timing.csv'
 with open(fname, 'w') as f:
