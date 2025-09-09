@@ -3,6 +3,7 @@ import time
 import numpy as np
 import scipy.sparse as sp
 import itertools
+from add_sample import draw_sample
 from drn_to_sparse import read_drn
 import argparse
 
@@ -13,9 +14,11 @@ rng = np.random.default_rng()
 ms_str_from = lambda start_ns: f'{(time.perf_counter_ns()-start_ns)*1e-6:05.6f}ms'
 ms_str_any = lambda ns: f'{ns*1e-6:.6f}ms'
 
+
 # make T[x,y,z] = G[x,y] * G[y,z]
 def compute_mid_step(g):
-    wide = sp.block_diag(g, format='csr')
+    diag = [[None if j != i else g_ for j in range(g.shape[0])] for i, g_ in enumerate(g)]
+    wide = sp.bmat(diag, format='csr')
     mult = g @ wide
     # print(mult.data.nbytes + mult.indptr.nbytes + mult.indices.nbytes)
     return mult
@@ -55,25 +58,38 @@ def slice_csr_full(mat, x, z):
     if len(z) == 0:
         z = np.arange(d)
     cols = np.reshape(z, (-1, 1)) + np.arange(0, d**2, d)
-    res = mat[x][:, cols.flatten()]
+    res = mat[x][:, cols.flatten()].toarray()
     newshape = res.reshape((len(x), -1, len(z)), order='F')
-    # print(newshape.toarray())
     return newshape
+
 
 # subsequent samples use simple indexing bc x, z arent arrays
 def slice_csr_col(mat, x, z):
     d = mat.shape[0]
     new_s = np.s_[x, z::d]
-    return mat[new_s]
+    return mat[new_s].toarray()[0]
+
+def test_slice_csr(actual):
+    goal = np.array([[ 3472,  3808,  4144],
+                    [10788, 12152, 13516],
+                    [19448, 22032, 24616],
+                    [29452, 33448, 37444]])
+    for i in range(goal.shape[0]):
+        for j in range(goal.shape[1]):
+            for k in range(goal.shape[2]):
+                is_eq = goal[i,j,k] == actual[i,j,k]
+                if not is_eq:
+                    print(i,j,j)
 
 
 # pick a coordinate based on transition probability
 def weighted_idx_sample(mat):
-    coords = np.array(mat.nonzero())
-    weights = mat.data
+    coords = mat.nonzero()
+    weights = mat[coords].view()
     weights /= weights.sum() # normalize weights to 1
-    res = rng.choice(coords, axis=1, p=weights)
-    return res
+    res = np.random.choice(len(weights),1, p=weights)[0]
+    res_coords = np.array([c[res] for c in coords]).flatten()
+    return res_coords
 
 
 # assumes initial states have the same probability of being chosen
@@ -99,7 +115,7 @@ def sample_seq_step(ti, lo, hi, w):
 
 def draw_sample_fill(ts, t_idx, w, start, end):
     for i in range(t_idx, 0, -1):
-        inc = np.power(2, i)
+        inc = 2**i
         for j in range(start, end, inc):
             sample_seq_step(ts[i-1], j, j + inc, w)
 
@@ -254,7 +270,7 @@ def load_and_store(dirname, t0, length):
 
 
 if __name__ == "__main__":
-    parser = True
+    parser = False
     # python sparse_mat_sample.py dtmcs/die.drn 8 -repeats 10
     if parser:
         parser = argparse.ArgumentParser("Generates conditional samples of system via sparse matrices.")
@@ -271,10 +287,10 @@ if __name__ == "__main__":
         tlabel = args.tlabel
         store = args.store
     else:
-        filename = "dtmcs/leader_sync/leader_sync3_2.drn"
+        filename = "dtmcs/die.drn"
         path_n = 8
         repeats = 100
-        tlabel = 'elected'
+        tlabel = 'target'
         store = False
     print(f'Running parameters: fname={filename}, n={path_n}, repeats={repeats}, label={tlabel}, store={store}')
     parse_time = time.perf_counter_ns()
@@ -287,6 +303,13 @@ if __name__ == "__main__":
 
     print(f"Number of states: {transitions.shape[0]}")
     print(f"Number of transitions: {transitions.nnz}")
+    
+    model = make_small_sample()
+    print(f'Finished parsing input: {ms_str_from(parse_time)}.')
+    init = [0]
+    target = [2]
+    assert len(target) > 0, "Target states missing"
+    transitions = model.tocsr()
     
     if store:
         dirname = filename.replace('.drn', '/')

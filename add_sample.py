@@ -7,7 +7,7 @@ import numpy as np
 np.set_printoptions(precision=2, suppress=True)
 rng = np.random.default_rng()
 
-from add_from_drdd import load_adds_from_drdd
+from drdd_to_add import load_adds_from_drdd
 from bdd_prob_sample import state_to_og_vars # type: ignore
 
 ms_str_from = lambda start_ns: f'{(perf_counter_ns()-start_ns)*1e-6:05.6f}ms'

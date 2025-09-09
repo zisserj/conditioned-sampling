@@ -1,7 +1,7 @@
 from time import perf_counter_ns
 import omega.symbolic.fol as _fol
 import dd.cudd as _bdd # type: ignore
-from bdd_from_drdd import load_bdds_from_drdd
+from drdd_to_bdd import load_bdds_from_drdd
 import numpy as np
 #from line_profiler import profile
 

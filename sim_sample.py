@@ -52,10 +52,10 @@ if __name__ == "__main__":
         max_repeats = args.max_repeats
         const_str = args.constants
     else:
-        filename = "dtmcs/nand/nand.pm"
-        path_n = 128
+        filename = "dtmcs/leader_sync/leader_sync3_2.pm"
+        path_n = 8
         repeats = 100
-        tlabel = 'target'
+        tlabel = 'elected'
         max_repeats = None
         const_str=None
     if not max_repeats:
