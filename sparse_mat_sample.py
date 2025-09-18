@@ -6,7 +6,7 @@ import itertools
 from drn_to_sparse import read_drn
 import argparse
 
-np.set_printoptions(precision=2, suppress=True)
+np.set_printoptions(precision=10, suppress=True)
 rng = np.random.default_rng()
 
 
@@ -66,7 +66,6 @@ def slice_csr_col(mat, x, z):
     new_s = np.s_[x, z::d]
     return mat[new_s]
 
-
 # pick a coordinate based on transition probability
 def weighted_idx_sample(mat):
     coords = np.array(mat.nonzero())
@@ -75,13 +74,12 @@ def weighted_idx_sample(mat):
     res = rng.choice(coords, axis=1, p=weights)
     return res
 
-
 # assumes initial states have the same probability of being chosen
 def sample_conditioned(ti, init, target, w, s=0, d=-1):
     d = len(w)+d if (d < 0) else d
     mid = (s+d)//2
     rel_mat = slice_csr_full(ti, init, target)
-    if np.isclose(rel_mat.max(), 0):
+    if rel_mat.sum() == 0:
         return "No matching traces"
     # per_init_idx = np.sum(rel_mat, axis=(0, 1))
     bounds_idx = weighted_idx_sample(rel_mat)
@@ -123,9 +121,10 @@ def compute_nonpower_indices(gs, length, init):
             # for all x in set prior_prop:={possible states to be at after prev gi steps starting at init} 
             # what is the probability of (having gotten to x) /\ (get to all y from x)
             yi_from_x = gs[i][reachable].multiply(prior_prob.reshape(-1,1))
+            
             # sum over x to get specific probability to be at state y after prev + cur gi
             marginal_yi = yi_from_x.sum(axis=0)
-            marginal_yi = marginal_yi/marginal_yi.sum() # normalize to get probabilities (its all relative anyway)
+            #marginal_yi = marginal_yi/marginal_yi.sum()
             
             reachable = marginal_yi.nonzero()
             prior_prob = marginal_yi[reachable]
@@ -133,6 +132,8 @@ def compute_nonpower_indices(gs, length, init):
                                   sp.csr_array(marginal_yi)))
     return steps_indices
 
+# currently returns incorrect results, need to update to match
+# theoretical alg
 def draw_sample_nonpower(gs, ts, length, init, target, indices):
     w = np.full(length+1, -1, dtype=int)
     # backwards compute - given init and target, select middle nodes
@@ -175,13 +176,8 @@ def make_small_sample():
 # alg works the same for counting number of traces, and is easier to see while testing
 def make_small_sample_count():
     dim = 4
-    ts_data = [0,1,0,1,0,1,1,0,0,0,1,0,0,2,0,0]
-    ts_t0 = {k: v for k, v in zip(itertools.product(range(4), repeat=2), ts_data) if v != 0}
-
-    row = [i for (i, j) in ts_t0.keys()]
-    col = [j for (i, j) in ts_t0.keys()]
-    vals = list(ts_t0.values())
-    return sp.coo_array((vals, (row, col)), shape=(dim, dim), dtype=float).tocsr()
+    ts_data = np.array([[0,1,0,1],[0,1,1,0],[0,0,1,0],[0,1,0,0]])
+    return sp.coo_matrix(ts_data, shape=(dim, dim), dtype=float).tocsr()
 
 def generate_many_traces(gs, ts, length, init, target, save_traces=False, repeats=500):
     init = np.array(init)
@@ -271,10 +267,10 @@ if __name__ == "__main__":
         tlabel = args.tlabel
         store = args.store
     else:
-        filename = "dtmcs/leader_sync/leader_sync3_2.drn"
-        path_n = 8
+        filename = "dtmcs/die.drn"
+        path_n = 12
         repeats = 100
-        tlabel = 'elected'
+        tlabel = 'target'
         store = False
     print(f'Running parameters: fname={filename}, n={path_n}, repeats={repeats}, label={tlabel}, store={store}')
     parse_time = time.perf_counter_ns()
@@ -296,8 +292,6 @@ if __name__ == "__main__":
         gs, ts = compute_power_mats(transitions, path_n)
         print(f'Finished precomputing functions: {ms_str_from(precomp_time)}.')
     
-    
-    # print(f'Finished drawing 1 sample: {ms_from(precomp_time)} from parse')
     res = generate_many_traces(gs, ts, path_n, init, target, repeats=repeats)
      
     

@@ -62,7 +62,7 @@ def load_adds_from_drdd(agd, filename,
                         rename_vars=True, load_targets=['transitions']):
     with open(filename, "r") as file:
         content = file.read()
-
+    agd.configure(reordering=False)
     vars = []
     adds_str = re.finditer(r"%([\S ]+)\n\[\n([\S\s]*?)\n\],\[(\d+),\]", content)
     res = {}
@@ -83,6 +83,8 @@ def load_adds_from_drdd(agd, filename,
     
     if rename_vars:
         rename_vars_xy(agd, res, vars)
+        
+    agd.configure(reordering=True)
     return res
 
 

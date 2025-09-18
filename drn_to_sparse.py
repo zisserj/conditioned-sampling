@@ -14,7 +14,7 @@ def read_drn(filename, target_label='target'):
         content = f.read()
 
     # currently does not capture rewards
-    pat_with_sqr = r"state (\d+)(?: \[[\d., ]+\])? ?([\w ]*)\n\taction 0(?: \[[\d., ]+\])?\n([\s\d:.]*)"
+    pat_with_sqr = r"state (\d+)(?: \[[\d., ]+\])? ?([\w ]*)\n\taction 0(?: \[[\d., ]+\])?\n([\s\d:.\/]*)"
 
     rows_match = re.finditer(pat_with_sqr, content)
     num_states = int(re.findall(r"@nr_states\n(\d+)",content)[0])
@@ -31,9 +31,11 @@ def read_drn(filename, target_label='target'):
         if target_label in labels:
             target_states.append(idx)
         body = match.group(3).strip()
-        ts_strs = re.finditer(r"(\d+) : ([\d.]+)", body)
+        ts_strs = re.finditer(r"(\d+) : ([\d.\/]+)", body)
         for ts_match in ts_strs:
             t = int(ts_match.group(1))
+            if '/' in ts_match.group(2):
+                raise ValueError("Can't process rational fractions")
             p = float(ts_match.group(2))
             t_mat[idx, t] = p
             #print(f'{idx} - {t}:{p} ({labels})')
@@ -46,8 +48,8 @@ def read_drn(filename, target_label='target'):
     return {'init': initial, 'target': target, 'trans': transitions}
 
 if __name__ == '__main__':
-    filename = "dtmcs/brp/brp_64_2.drn"
+    filename = "dtmcs/robot.drn"
     res = read_drn(filename)
-    print(res['initial'])
+    print(res['init'])
     print(res['target'])
     # sp.save_npz("dice_mat.npz", transitions)
