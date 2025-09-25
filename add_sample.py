@@ -193,12 +193,14 @@ if __name__ == "__main__":
         tlabel = args.tlabel
         store = args.store
     else:
-        filename = "dtmcs/brp/brp_N_16_MAX_4.drdd"
-        path_n = 64
+        filename = "dtmcs/robot.drdd"
+        path_n = 128
         repeats = 100
         tlabel = 'target'
         store = False
     print(f'Running parameters: fname={filename}, n={path_n}, repeats={repeats}, label={tlabel}, store={store}')
+    if not (path_n & (path_n-1) == 0) and path_n != 0:
+        raise ValueError("Path length must be power of 2") 
     
     manager = _agd.ADD()
     manager.configure(max_growth=1.5)
