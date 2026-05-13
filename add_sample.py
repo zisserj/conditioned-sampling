@@ -253,8 +253,7 @@ def print_map():
 if __name__ == "__main__":
     
     parser = True
-    bypass_restriction = True
-    # python add_sample.py dtmcs/die.drdd 8 -repeats 10
+    # python add_sample.py dtmcs/dice/die.drdd 8 -repeats 10
     if parser:
         parser = argparse.ArgumentParser("Generates conditional samples of system via Algabraic Decision Diagrams.")
         parser.add_argument("fname", help="Model exported as drdd file by storm", type=str)
@@ -263,6 +262,7 @@ if __name__ == "__main__":
         parser.add_argument("-tlabel", help="Name of target label matching desired final states",
                             type=str, default='target')
         parser.add_argument('-output', help="File destination for generated traces", type=str, default='')
+        parser.add_argument('--alg4', help="Use general alg for powers of two instead of baseline", action='store_true')
         parser.add_argument('--store', help="Store / try loading existing functions", action='store_true')
         args = parser.parse_args()
         filename = args.fname
@@ -270,12 +270,14 @@ if __name__ == "__main__":
         repeats = args.repeats
         tlabel = args.tlabel
         store = args.store
+        bypass = args.alg4
         output = args.output
     else:
         filename = "dtmcs/brp/brp_N_64_MAX_4.drdd"
         path_n = 16
         repeats = 100
         tlabel = 'target'
+        bypass = True
         store = False
         output = filename + '.out'
     print(f'Running parameters: fname={filename}, n={path_n},'+
@@ -311,7 +313,7 @@ if __name__ == "__main__":
         
     res = generate_many_traces(context, gs, ts, path_n,
                 init, target, save_traces=save_traces,
-                repeats=repeats, bypass=bypass_restriction)
+                repeats=repeats, bypass=bypass)
     
     if save_traces and res:
         with open(output, 'w+') as f:

@@ -269,8 +269,7 @@ def load_and_store(dirname, t0, length):
 
 if __name__ == "__main__":
     parser = True
-    bypass_restriction = False
-    # python sparse_mat_sample.py dtmcs/die.drn 8 -repeats 10
+    # python sparse_mat_sample.py dtmcs/dice/die.drn 8 -repeats 10
     if parser:
         parser = argparse.ArgumentParser("Generates conditional samples of system via sparse matrices.")
         parser.add_argument("fname", help="Model exported as drn file by storm", type=str)
@@ -279,12 +278,14 @@ if __name__ == "__main__":
         parser.add_argument("-tlabel", help="Name of target label matching desired final states",
                             type=str, default='target')
         parser.add_argument('-output', help="File destination for generated traces", type=str, default='')
+        parser.add_argument('--alg4', help="Use general alg for powers of two instead of baseline", action='store_true')
         parser.add_argument('--store', help="Store / try loading existing mats", action='store_true')
         args = parser.parse_args()
         filename = args.fname
         path_n = args.length
         repeats = args.repeats
         tlabel = args.tlabel
+        bypass = args.alg4
         store = args.store
         output = args.output
     else:
@@ -292,10 +293,11 @@ if __name__ == "__main__":
         path_n = 16
         repeats = 100
         tlabel = 'target'
+        bypass = True
         store = False
         output = filename + '.out'
     print(f'Running parameters: fname={filename}, n={path_n}, repeats={repeats},'+
-          f' label={tlabel}, store={store}, output={output if len(output) > 0 else False}')
+          f' label={tlabel}, store={store}, alg4={bypass}, output={output if len(output) > 0 else False}')
     parse_time = time.perf_counter_ns()
     model = read_drn(filename)
     print(f'Finished parsing input: {_ms_str_from(parse_time)}.')
@@ -321,7 +323,7 @@ if __name__ == "__main__":
     # plot_mats(filename.replace('.drn', ''), gs, ts)
     # quit(0)
     res = generate_many_traces(gs, ts, path_n, init,
-                target, repeats=repeats, save_traces=save_traces, bypass=bypass_restriction)
+                target, repeats=repeats, save_traces=save_traces, bypass=bypass)
     
     if save_traces and res:
         with open(output, 'w+') as f:
