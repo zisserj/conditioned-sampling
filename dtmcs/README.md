@@ -4,4 +4,4 @@ This folder contains the models, mostly taken [from here](https://github.com/pri
 
 `robot` contains the script used to generate the prism models for that scenario.
 
-The raw results of the experiments can be found in `timing_all.csv` (all measurements are in ms).
+The compiled results of the experiments can be found in `results/fmcad` (all measurements are in ms).

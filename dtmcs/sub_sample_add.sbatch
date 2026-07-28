@@ -9,7 +9,6 @@
 #SBATCH --job-name herman-a ### name of the job
 #SBATCH --output logs/add_sampling-%x-%J.out			### output log for running job - %J for job number
 #SBATCH --mem=32G				### ammount of RAM memory, allocating more than 60G requires IT team's permission
-#SBATCH --constraint=cpu128
 
 ################  Following lines will be executed by a compute node    #######################
 

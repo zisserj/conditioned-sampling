@@ -3,7 +3,7 @@ dtmcs/*/og
 __pycache__/
 dtmcs/*/*.dr*
 dtmcs/*/*.png
-dtmcs/*/*/
-dtmcs/logs/
+dtmcs/results/*/*.out
+dtmcs/results/*/*.txt
 dtmcs/robot/*.pm
 dd_experiments/__pycache__/

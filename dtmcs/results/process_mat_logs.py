@@ -14,15 +14,18 @@ output_pat = r'''[\w ]+input: ([\d.]+)ms.\
 
 
 content = ""
-head = "dtmcs/logs/"
-fnames = '''mat_sampling-herman-17220907.out      mat_sampling-nand-17220737.out
-mat_sampling-brp-17220900.out   mat_sampling-leader-17220911.out 
-mat_sampling-egl-17220903.out   mat_sampling-mat_crowds-17235718.out'''.split()
+dir = "dtmcs/results/fmcad/"
+fnames = '''mat_sampling-egl-17277027.out
+mat_sampling-leader_sync-17277060.out
+mat_sampling-mat_brp-17276988.out
+mat_sampling-mat_crowds-17277013.out
+mat_sampling-nand-17277028.out
+mat_sampling-herman-17293619.out'''.split()
 
 
 res = [] # length, states, transitinons, precomp, sample
 for fname in fnames:
-    with open(head+fname) as f:
+    with open(dir+fname) as f:
         content = f.read()
     seq = re.split(entry_pat, content) # [preamble, model, params, length, content, model,...]
     for i in range(1, len(seq), 4):
@@ -50,7 +53,7 @@ for fname in fnames:
 # model, params, length, parsetime, #states, #transitions,
 # precompute, written mats, prob, avg/sample
 
-fname = 'dtmcs/mat_timing.csv'
+fname = dir+'mat_timing.csv'
 with open(fname, 'w') as f:
     f.write('name,params,length,output_type,parse_time,states,trans,precomp_time,newmat,prob,sample_time\n')
     f.write('\n'.join(res))

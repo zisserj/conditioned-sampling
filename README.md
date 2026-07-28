@@ -24,10 +24,10 @@ Some processed files have been provided in the `example` folder for convenience.
 `sim_sample.py`, unlike the others, performs naive rejection sampling as opposed to our conditioned algorithm and takes a *prism* file as input Note it requires stormpy.
 
 ```
-python  sparse_mat_sample.py -h
-usage: Generates conditional samples of system via sparse matrices.
-       [-h] [-repeats REPEATS] [-tlabel TLABEL] [-output OUTPUT] [--store]
-       fname length
+python sparse_mat_sample.py --help
+usage: Generates conditional samples of system via sparse matrices. [-h] [-repeats REPEATS] [-tlabel TLABEL]
+                                                                    [-output OUTPUT] [--alg4] [--store]
+                                                                    fname length
 positional arguments:
   fname             Model exported as drn file by storm
   length            Generated trace length
@@ -37,6 +37,7 @@ options:
   -repeats REPEATS  Number of traces to generate
   -tlabel TLABEL    Name of target label matching desired final states
   -output OUTPUT    File destination for generated traces
+  --alg4            Use general alg for powers of two instead of baseline
   --store           Store / try loading existing mats
 ```
 
@@ -53,5 +54,5 @@ The algorithms can be invoked directly by importing the relevant modules. This i
 2. Precompute the multi-step transition functions via the `compute_power` functions.
 3. Generate samples using the information from the previous step via `draw_sample` or `generate_many_traces`.
 
-The `__main__` functions of each module can be used as reference, and otherwise feel free to reach out for questions. Matching common python conventions, the underscored functions are considered internal and should not be invoked directly.
+The `__main__` functions of each module can be used as a reference, and otherwise feel free to reach out for questions. Matching common Python conventions, the underscored functions are considered internal and should not be invoked directly.
 

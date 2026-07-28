@@ -7,7 +7,9 @@ import argparse
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-np.set_printoptions(precision=10, suppress=True)
+import memray
+
+np.set_printoptions(precision=5, suppress=True)
 rng = np.random.default_rng()
 
 
@@ -46,20 +48,21 @@ def plot_mats(dirname, gs, ts):
     fname = os.path.basename(dirname)
     n_func = len(gs)
     dim = gs[0].shape[0]
-    msize = 150/(dim)
+    msize = 500/(dim)
     cmap = mpl.colormaps['plasma']
     colors = cmap(np.linspace(0.8, 0, n_func))
     fig = plt.figure(figsize=(7,7))
     for i, g in enumerate(reversed(gs)):
         num_values = len(np.unique(g.data, sorted=False)) # type: ignore
-        plt.spy(g, figure=fig, markersize=msize,
+        plt.spy(g, figure=fig, markersize=msize, marker='s',
                 c=colors[i], label=f'$g_{n_func-i-1}$, {num_values} unique values')
-    plt.title(f'Matrix Rep of $g_i$ for "{fname}"')
+    #plt.title(f'Matrix Rep of $g_i$ for "{fname}"')
     plt.xticks([0, dim-1])
     plt.yticks([0, dim-1])
     plt.legend(loc='lower left', markerscale=10/msize, reverse=True)
-    plt.tight_layout()
+    #plt.tight_layout()
     plt.savefig(dirname+'_gs.png')
+    print(f'exported {dirname}')
     plt.close()
 
 def ts_sanity_test(ts, path_n, init, target):
@@ -180,21 +183,6 @@ def draw_sample_generic(ts, length, target, mid_tranitions):
         #endpoint_sampled = [w[start_idx]]
         goal_idx = step_idx
     return w
-
-def draw_sample_bypass(ts, gs, length, init, target):
-    w = np.full(length+1, -1, dtype=int)
-    i = int(np.log2(length))
-    prior_prob = np.zeros(gs[0].shape[0])
-    prior_prob[init] = 1/len(init)
-    
-    prior_diag = sp.diags_array(prior_prob, offsets=0)
-    trans_mat = prior_diag @ gs[i]
-    restr = trans_mat[:,target]
-    endpoint_pair =  _weighted_idx_sample(restr)
-    w[0] = endpoint_pair[0]
-    w[length] = target[endpoint_pair[1]]
-    _draw_sample_fill(ts, i, w, 0, length)
-    return w
     
 def make_small_sample():
     dim = 4
@@ -211,16 +199,12 @@ def make_small_sample_count():
 def generate_many_traces(gs, ts, length, init, target, save_traces=False, repeats=500, bypass=True):
     init = np.array(init)
     target = np.array(target)
-    if (path_n & (path_n-1) == 0) and path_n != 0: # https://stackoverflow.com/a/57025941
-        if not bypass:
-            draw = lambda: draw_sample_simple(ts, length, init, target)
-        else:
-            gs.append(gs[-1] @ gs[-1])
-            draw = lambda: draw_sample_bypass(ts, gs, length, init, target)
+    if not bypass and (path_n & (path_n-1) == 0) and path_n != 0: # https://stackoverflow.com/a/57025941
+        draw = lambda: draw_sample_simple(ts, length, init, target)
         rel_mat = _slice_csr_full(ts[-1], init, target)
         print(f"Property probability is {rel_mat.sum()/len(init)}")
     else:
-        if len(gs) < np.log2(path_n):
+        if len(gs) <= np.log2(path_n):
             extend_power_mats(gs, ts, len(gs)+1)
         endpoint_steps = compute_forward_probs(gs, length, init)
         draw = lambda: draw_sample_generic(ts, length, target, endpoint_steps)
@@ -284,8 +268,7 @@ def load_and_store(dirname, t0, length):
 
 if __name__ == "__main__":
     parser = True
-    bypass_restriction = True
-    # python sparse_mat_sample.py dtmcs/die.drn 8 -repeats 10
+    # python sparse_mat_sample.py dtmcs/dice/die.drn 8 -repeats 10
     if parser:
         parser = argparse.ArgumentParser("Generates conditional samples of system via sparse matrices.")
         parser.add_argument("fname", help="Model exported as drn file by storm", type=str)
@@ -294,55 +277,61 @@ if __name__ == "__main__":
         parser.add_argument("-tlabel", help="Name of target label matching desired final states",
                             type=str, default='target')
         parser.add_argument('-output', help="File destination for generated traces", type=str, default='')
+        parser.add_argument('--alg4', help="Use general alg for powers of two instead of baseline", action='store_true')
         parser.add_argument('--store', help="Store / try loading existing mats", action='store_true')
         args = parser.parse_args()
         filename = args.fname
         path_n = args.length
         repeats = args.repeats
         tlabel = args.tlabel
+        bypass = args.alg4
         store = args.store
         output = args.output
     else:
-        filename = "dtmcs/brp/brp_64_2.drn"
-        path_n = 15
+        filename = "dtmcs/brp/brp_N_64_MAX_4.drn"
+        path_n = 32
         repeats = 100
         tlabel = 'target'
+        bypass = True
         store = False
         output = filename + '.out'
     print(f'Running parameters: fname={filename}, n={path_n}, repeats={repeats},'+
-          f' label={tlabel}, store={store}, output={output if len(output) > 0 else False}')
-    parse_time = time.perf_counter_ns()
-    model = read_drn(filename)
-    print(f'Finished parsing input: {_ms_str_from(parse_time)}.')
-    init = model['init']
-    assert tlabel in model, f"Target label '{tlabel}' missing"
-    target = model[tlabel]
-    assert len(target) > 0, "Target states missing"
-    transitions = model['trans'].tocsr()
+          f' label={tlabel}, store={store}, alg4={bypass}, output={output if len(output) > 0 else False}')
+    memlog = f'{filename}_{path_n}.bin'
+    with memray.Tracker(destination=memray.FileDestination(memlog, overwrite=True), native_traces=True):
+        parse_time = time.perf_counter_ns()
+        model = read_drn(filename)
+        print(f'Finished parsing input: {_ms_str_from(parse_time)}.')
+        init = model['init']
+        assert tlabel in model, f"Target label '{tlabel}' missing"
+        target = model[tlabel]
+        assert len(target) > 0, "Target states missing"
+        transitions = model['trans'].tocsr()
 
-    print(f"Number of states: {transitions.shape[0]}")
-    print(f"Number of transitions: {transitions.nnz}")
+        print(f"Number of states: {transitions.shape[0]}")
+        print(f"Number of transitions: {transitions.nnz}")
+        
+        if store:
+            dirname = filename.replace('.drn', '/')
+            gs, ts = load_and_store(dirname, transitions, path_n)
+        else:
+            precomp_time = time.perf_counter_ns()
+            gs, ts = compute_power_mats(transitions, path_n)
+            print(f'Finished precomputing functions: {_ms_str_from(precomp_time)}.')
+        
+        
+        save_traces = len(output) > 0
+        # plot_mats(filename.replace('.drn', ''), gs, ts)
+        # quit(0)
+        res = generate_many_traces(gs, ts, path_n, init,
+                    target, repeats=repeats, save_traces=save_traces, bypass=bypass)
     
-    if store:
-        dirname = filename.replace('.drn', '/')
-        gs, ts = load_and_store(dirname, transitions, path_n)
-    else:
-        precomp_time = time.perf_counter_ns()
-        gs, ts = compute_power_mats(transitions, path_n)
-        print(f'Finished precomputing functions: {_ms_str_from(precomp_time)}.')
-    
-    
-    save_traces = len(output) > 0
-    #plot_mats(filename.replace('.drn', ''), gs, ts)
-    res = generate_many_traces(gs, ts, path_n, init,
-                target, repeats=repeats, save_traces=save_traces, bypass=bypass_restriction)
-    
-    if save_traces and res:
-        with open(output, 'w+') as f:
-            for label, states in model.items():
-                if label != 'trans':
-                    f.write(f'{label}: {str(states)}\n')
-            f.write('---\n')
-            f.write('\n'.join([str(r)[1:-1] for r in res]))
-        print(f'{len(res)} traces written to {output}.')
+        if save_traces and res:
+            with open(output, 'w+') as f:
+                for label, states in model.items():
+                    if label != 'trans':
+                        f.write(f'{label}: {str(states)}\n')
+                f.write('---\n')
+                f.write('\n'.join([str(r)[1:-1] for r in res]))
+            print(f'{len(res)} traces written to {output}.')
 
