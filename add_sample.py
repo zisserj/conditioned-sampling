@@ -71,12 +71,12 @@ def compute_power_graphs(ctx, trans, n):
         t_k = manager.apply('*', g_k, g_k_) # cuddGarbageCollect?
         ts.append(t_k)
         
-        if i < iters or not is_power_of_2:
-            # g = Ey in t
-            g_k_pre = manager.exist(map_next_iter.values(), t_k)
-            g_k = manager.let(map_next_iter, g_k_pre)
-            gs.append(g_k)
-            last_t = perf_counter_ns()
+        # if i <= iters or not is_power_of_2:
+        # g = Ey in t
+        g_k_pre = manager.exist(map_next_iter.values(), t_k)
+        g_k = manager.let(map_next_iter, g_k_pre)
+        gs.append(g_k)
+        last_t = perf_counter_ns()
     return gs, ts
 
 # bdd assignment as int repr
@@ -215,17 +215,14 @@ def _state_to_og_vars(vars, w, intval):
         idx += num_bits
     return res
 
-def generate_many_traces(ctx, gs, ts, length, init, target, save_traces=False, repeats=500):
-    if (length & (length-1) == 0) and length != 0: # https://stackoverflow.com/a/57025941
+def generate_many_traces(ctx, gs, ts, length, init, target, save_traces=False, repeats=500, bypass=True):
+    if not bypass and (length & (length-1) == 0) and length != 0: # https://stackoverflow.com/a/57025941
         draw = lambda: draw_sample_power(ctx, ts, length, init, target)
-        # rel_mat = _slice_csr_full(ts[-1], init, target)
         #print(f"Property probability is {rel_mat.sum()/len(init)}")
     else:
         mid_transitions = compute_forward_probs(ctx, gs, length, init)
         draw = lambda: draw_sample_generic(ctx, ts, length, target, mid_transitions)
-        # rel_mat = endpoint_steps[-1][1][:, target]
         # print(f"Property probability is {rel_mat.sum()/len(init)}")
-    
 
     generated = []
     time_total = 0
@@ -256,6 +253,7 @@ def print_map():
 if __name__ == "__main__":
     
     parser = True
+    bypass_restriction = False
     # python add_sample.py dtmcs/die.drdd 8 -repeats 10
     if parser:
         parser = argparse.ArgumentParser("Generates conditional samples of system via Algabraic Decision Diagrams.")
@@ -274,8 +272,8 @@ if __name__ == "__main__":
         store = args.store
         output = args.output
     else:
-        filename = "dtmcs/dice/die.drdd"
-        path_n = 18
+        filename = "dtmcs/brp/brp_N_64_MAX_4.drdd"
+        path_n = 16
         repeats = 100
         tlabel = 'target'
         store = False
@@ -296,6 +294,7 @@ if __name__ == "__main__":
     assert len(target) > 0, "Target states missing"
     transitions = model['transitions']
     
+    
     print(f"Number of variables per state: {len(transitions.support)//2}")
     print(f"Size of ADD: {transitions.dag_size} nodes")
 
@@ -312,7 +311,7 @@ if __name__ == "__main__":
         
     res = generate_many_traces(context, gs, ts, path_n,
                 init, target, save_traces=save_traces,
-                repeats=repeats)
+                repeats=repeats, bypass=bypass_restriction)
     
     if save_traces and res:
         with open(output, 'w+') as f:
