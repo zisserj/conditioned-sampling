@@ -255,7 +255,8 @@ def print_map():
 if __name__ == "__main__":
     
     parser = True
-    # python add_sample.py dtmcs/dice/die.drdd 8 -repeats 10
+    bypass_restriction = False
+    # python add_sample.py dtmcs/die.drdd 8 -repeats 10
     if parser:
         parser = argparse.ArgumentParser("Generates conditional samples of system via Algabraic Decision Diagrams.")
         parser.add_argument("fname", help="Model exported as drdd file by storm", type=str)

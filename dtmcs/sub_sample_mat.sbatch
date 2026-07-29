@@ -5,13 +5,11 @@
 ### To ignore, just add another # - like so: ##SBATCH
 ################################################################################################
 
-#SBATCH --partition main                        ### specify partition name where to run a job. change only if you have a matching qos!! main: all nodes; gtx1080: 1080 gpu card nodes; rtx2080: 2080 nodes; teslap100: p100 nodes; titanrtx: titan nodes
 #SBATCH --time 0-20:30:00                       ### limit the time of job running. Make sure it is not greater than the partition time limit!! Format: D-H:MM:SS
 #SBATCH --job-name herman_mat              ### name of the job
 #SBATCH --output logs/mat_sampling-%x-%J.out                    ### output log for running job - %J for job number
 #SBATCH --mem=32G                               ### ammount of RAM memory, allocating more than 60G requires IT team's permission
 #SBATCH --constraint=cpu128
-
 
 ################  Following lines will be executed by a compute node    #######################
 
@@ -25,15 +23,15 @@ module load anaconda				### load anaconda module (must be present when working w
 source activate conditioned_sampling				### activate a conda environment, replace my_env with your conda environment
 
 script="$HOME/conditioned/graph-sampling/sparse_mat_sample.py"
-dir=nand;
+dir=herman;
 
-for dir in $dir; do # egl herman leader_sync nand; do
+for dir in $dir; do # crowds egl herman leader_sync nand; do
   for file in "$dir"/*.drn; do
     fdir=${file%.*}
     rm "$fdir"/*
-    for length in 8 12 16 24 32 48 64 96 128; do
+    for length in 8 12 15 16 31 32 48 63 64 96 127 128; do
         echo "--- $file - $length ---"
-        python $script "$file" $length -repeats 500 -tlabel target --store
+        python $script "$file" $length -repeats 500 -tlabel stable --store
     done
   done
 done
