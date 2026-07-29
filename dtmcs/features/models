@@ -2,4 +2,4 @@ brp.pm --constants N=32,MAX=3 target
 brp.pm --constants N=64,MAX=4 target
 crowds.pm --constants TotalRuns=3,CrowdSize=15 target
 crowds.pm --constants TotalRuns=4,CrowdSize=20 target
-herman7.pm stable
+herman7.pm target

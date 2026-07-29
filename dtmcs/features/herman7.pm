@@ -40,5 +40,5 @@ endinit
 formula num_tokens = (x1=x2?1:0)+(x2=x3?1:0)+(x3=x4?1:0)+(x4=x5?1:0)+(x5=x6?1:0)+(x6=x7?1:0)+(x7=x1?1:0);
 
 // label - stable configurations (1 token)
-label "stable" = num_tokens=1;
+label "target" = num_tokens=1;
 
