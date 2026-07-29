@@ -5,7 +5,6 @@ import math
 from time import process_time_ns
 import numpy as np
 
-import memray
 
 np.set_printoptions(precision=3, suppress=True)
 rng = np.random.default_rng()

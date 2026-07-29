@@ -267,7 +267,7 @@ def load_and_store(dirname, t0, length):
 
 
 if __name__ == "__main__":
-    parser = False
+    parser = True
     # python sparse_mat_sample.py dtmcs/dice/die.drn 8 -repeats 10
     if parser:
         parser = argparse.ArgumentParser("Generates conditional samples of system via sparse matrices.")
