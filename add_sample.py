@@ -1,4 +1,5 @@
 import argparse
+import resource
 import dd.cudd_add as _agd # type: ignore
 import math
 from time import process_time_ns
@@ -291,46 +292,44 @@ if __name__ == "__main__":
     context = lambda: None # (required to assign attributes)
     context.manager = manager # type: ignore
     
+    parse_time = process_time_ns()
+    model = load_adds_from_drdd(context.manager, filename) # type: ignore
+    print(f'Finished parsing input: {_ms_str_from(parse_time)}.')
+    init = model['initial']
+    target = model[tlabel]
+    assert len(target) > 0, "Target states missing"
+    transitions = model['transitions']
     
-    memlog = f'{filename}_{path_n}.bin'
-    with memray.Tracker(destination=memray.FileDestination(memlog, overwrite=True), native_traces=True):
-        parse_time = process_time_ns()
-        model = load_adds_from_drdd(context.manager, filename)
-        print(f'Finished parsing input: {_ms_str_from(parse_time)}.')
-        init = model['initial']
-        target = model[tlabel]
-        assert len(target) > 0, "Target states missing"
-        transitions = model['transitions']
-        
-        
-        print(f"Number of variables per state: {len(transitions.support)//2}")
-        print(f"Size of ADD: {transitions.dag_size} nodes")
+    
+    print(f"Number of variables per state: {len(transitions.support)//2}")
+    print(f"Size of ADD: {transitions.dag_size} nodes")
 
-        if store:
-            raise NotImplementedError("ADD storage is not yet supported")
-            # dirname = filename.replace('.drdd', '/')
-            # gs, ts = load_and_store(dirname, transitions, path_n)
-        else:
-            precomp_time = process_time_ns()
-            gs, ts = compute_power_graphs(context, transitions, path_n)
-            print(f'Finished precomputing functions: {_ms_str_from(precomp_time)}.')
+    if store:
+        raise NotImplementedError("ADD storage is not yet supported")
+        # dirname = filename.replace('.drdd', '/')
+        # gs, ts = load_and_store(dirname, transitions, path_n)
+    else:
+        precomp_time = process_time_ns()
+        gs, ts = compute_power_graphs(context, transitions, path_n)
+        print(f'Finished precomputing functions: {_ms_str_from(precomp_time)}.')
+    
+    save_traces = len(output) > 0
         
-        save_traces = len(output) > 0
-            
-        res = generate_many_traces(context, gs, ts, path_n,
-                    init, target, save_traces=save_traces,
-                    repeats=repeats, bypass=bypass)
-        
-        if save_traces and res:
-            with open(output, 'w+') as f:
-                for label, states_bdd in model.items():
-                    if label != 'transitions':
-                        states_iter = context.manager.pick_iter(states_bdd)
-                        states = [_asgn_to_state(s,context.var_length, 'x')[0]
-                                    for s in states_iter]
-                        #_asgn_to_state(res_pair, ctx.var_length, 'xy')
-                        f.write(f'{label}: {str(states)}\n')
-                f.write('---\n')
-                f.write('\n'.join([str(r)[1:-1] for r in res]))
-            print(f'{len(res)} traces written to {output}.')
+    res = generate_many_traces(context, gs, ts, path_n,
+                init, target, save_traces=save_traces,
+                repeats=repeats, bypass=bypass)
+    
+    if save_traces and res:
+        with open(output, 'w+') as f:
+            for label, states_bdd in model.items():
+                if label != 'transitions':
+                    states_iter = context.manager.pick_iter(states_bdd) # type: ignore
+                    states = [_asgn_to_state(s,context.var_length, 'x')[0] # type: ignore
+                                for s in states_iter]
+                    #_asgn_to_state(res_pair, ctx.var_length, 'xy')
+                    f.write(f'{label}: {str(states)}\n')
+            f.write('---\n')
+            f.write('\n'.join([str(r)[1:-1] for r in res]))
+        print(f'{len(res)} traces written to {output}.')
+    print(f'maxrss: {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}kb')
         

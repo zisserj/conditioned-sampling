@@ -8,7 +8,7 @@ RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 
-RUN pip install numpy scipy matplotlib wheel cython memray --upgrade setuptools
+RUN pip install numpy scipy matplotlib wheel cython --upgrade setuptools
 
 RUN git clone https://github.com/zisserj/dd.git
 RUN git clone https://github.com/zisserj/MCCS.git

@@ -7,7 +7,7 @@ import argparse
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-import memray
+import resource
 
 np.set_printoptions(precision=5, suppress=True)
 rng = np.random.default_rng()
@@ -267,7 +267,7 @@ def load_and_store(dirname, t0, length):
 
 
 if __name__ == "__main__":
-    parser = True
+    parser = False
     # python sparse_mat_sample.py dtmcs/dice/die.drn 8 -repeats 10
     if parser:
         parser = argparse.ArgumentParser("Generates conditional samples of system via sparse matrices.")
@@ -297,41 +297,41 @@ if __name__ == "__main__":
         output = filename + '.out'
     print(f'Running parameters: fname={filename}, n={path_n}, repeats={repeats},'+
           f' label={tlabel}, store={store}, alg4={bypass}, output={output if len(output) > 0 else False}')
-    memlog = f'{filename}_{path_n}.bin'
-    with memray.Tracker(destination=memray.FileDestination(memlog, overwrite=True), native_traces=True):
-        parse_time = time.process_time_ns()
-        model = read_drn(filename)
-        print(f'Finished parsing input: {_ms_str_from(parse_time)}.')
-        init = model['init']
-        assert tlabel in model, f"Target label '{tlabel}' missing"
-        target = model[tlabel]
-        assert len(target) > 0, "Target states missing"
-        transitions = model['trans'].tocsr()
-
-        print(f"Number of states: {transitions.shape[0]}")
-        print(f"Number of transitions: {transitions.nnz}")
-        
-        if store:
-            dirname = filename.replace('.drn', '/')
-            gs, ts = load_and_store(dirname, transitions, path_n)
-        else:
-            precomp_time = time.process_time_ns()
-            gs, ts = compute_power_mats(transitions, path_n)
-            print(f'Finished precomputing functions: {_ms_str_from(precomp_time)}.')
-        
-        
-        save_traces = len(output) > 0
-        # plot_mats(filename.replace('.drn', ''), gs, ts)
-        # quit(0)
-        res = generate_many_traces(gs, ts, path_n, init,
-                    target, repeats=repeats, save_traces=save_traces, bypass=bypass)
     
-        if save_traces and res:
-            with open(output, 'w+') as f:
-                for label, states in model.items():
-                    if label != 'trans':
-                        f.write(f'{label}: {str(states)}\n')
-                f.write('---\n')
-                f.write('\n'.join([str(r)[1:-1] for r in res]))
-            print(f'{len(res)} traces written to {output}.')
+    parse_time = time.process_time_ns()
+    model = read_drn(filename)
+    print(f'Finished parsing input: {_ms_str_from(parse_time)}.')
+    init = model['init']
+    assert tlabel in model, f"Target label '{tlabel}' missing"
+    target = model[tlabel]
+    assert len(target) > 0, "Target states missing"
+    transitions = model['trans'].tocsr()
+
+    print(f"Number of states: {transitions.shape[0]}")
+    print(f"Number of transitions: {transitions.nnz}")
+    
+    if store:
+        dirname = filename.replace('.drn', '/')
+        gs, ts = load_and_store(dirname, transitions, path_n)
+    else:
+        precomp_time = time.process_time_ns()
+        gs, ts = compute_power_mats(transitions, path_n)
+        print(f'Finished precomputing functions: {_ms_str_from(precomp_time)}.')
+    
+    
+    save_traces = len(output) > 0
+    # plot_mats(filename.replace('.drn', ''), gs, ts)
+    # quit(0)
+    res = generate_many_traces(gs, ts, path_n, init,
+                target, repeats=repeats, save_traces=save_traces, bypass=bypass)
+
+    if save_traces and res:
+        with open(output, 'w+') as f:
+            for label, states in model.items():
+                if label != 'trans':
+                    f.write(f'{label}: {str(states)}\n')
+            f.write('---\n')
+            f.write('\n'.join([str(r)[1:-1] for r in res]))
+        print(f'{len(res)} traces written to {output}.')
+    print(f'maxrss: {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}kb')
 

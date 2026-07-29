@@ -16,17 +16,14 @@ def sample_trace(sim, length, target):
             tr.append(obs)
         else:
             return []
-    if target in labels:
-        return tr
-    else:
-        return []
+    return (tr, target in labels)
 
-def sample_relevant_traces(count, max_r, sim, length, target):
+def sample_many_traces(count, max_r, sim, length, target):
     traces = []
     for i in range(1, max_r+1):
-        tr_attempt = sample_trace(sim, length, target)
-        if len(tr_attempt) > 0:
-            traces.append(tr_attempt)
+        tr, in_target = sample_trace(sim, length, target)
+        if in_target or target == None:
+            traces.append(tr)
             if len(traces) == count:
                 return i, traces
     return i, traces # type: ignore
@@ -48,7 +45,7 @@ if __name__ == "__main__":
         filename = args.fname
         path_n = args.length
         repeats = args.repeats
-        tlabel = args.tlabel
+        tlabel = None if args.tlabel == "None" else args.tlabel
         max_repeats = args.max_repeats
         const_str = args.constants
     else:
@@ -75,7 +72,7 @@ if __name__ == "__main__":
     print(f'Finished creating simulator: {_ms_str_from(parse_time)}.')
     
     sim_time = time.process_time_ns()
-    attempts, res = sample_relevant_traces(repeats, max_repeats, sim, path_n, tlabel)
+    attempts, res = sample_many_traces(repeats, max_repeats, sim, path_n, tlabel)
     final_sim_time = time.process_time_ns() - sim_time
     if attempts >= max_repeats:
         print(f"Failed to sample {repeats} conditional traces in {max_repeats} attempts (got {len(res)}) in {_ms_str_any(final_sim_time)}.")
