@@ -62,7 +62,7 @@ if __name__ == "__main__":
         max_repeats = repeats * 100
     
     print(f'Running parameters: fname={filename}, n={path_n}, repeats={repeats}, label={tlabel}, max_repeats={max_repeats}')
-    parse_time = time.perf_counter_ns()
+    parse_time = time.process_time_ns()
     
     prism_program = stormpy.parse_prism_program(filename)
     if const_str:
@@ -74,9 +74,9 @@ if __name__ == "__main__":
     assert sim
     print(f'Finished creating simulator: {_ms_str_from(parse_time)}.')
     
-    sim_time = time.perf_counter_ns()
+    sim_time = time.process_time_ns()
     attempts, res = sample_relevant_traces(repeats, max_repeats, sim, path_n, tlabel)
-    final_sim_time = time.perf_counter_ns() - sim_time
+    final_sim_time = time.process_time_ns() - sim_time
     if attempts >= max_repeats:
         print(f"Failed to sample {repeats} conditional traces in {max_repeats} attempts (got {len(res)}) in {_ms_str_any(final_sim_time)}.")
     if len(res) > 0:

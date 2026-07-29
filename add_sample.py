@@ -1,7 +1,7 @@
 import argparse
 import dd.cudd_add as _agd # type: ignore
 import math
-from time import perf_counter_ns
+from time import process_time_ns
 import numpy as np
 
 import memray
@@ -11,7 +11,7 @@ rng = np.random.default_rng()
 
 from drdd_to_add import load_adds_from_drdd
 
-_ms_str_from = lambda start_ns: f'{(perf_counter_ns()-start_ns)*1e-6:05.6f}ms'
+_ms_str_from = lambda start_ns: f'{(process_time_ns()-start_ns)*1e-6:05.6f}ms'
 _ms_str_any = lambda ns: f'{ns*1e-6:.6f}ms'
 
 
@@ -66,7 +66,7 @@ def compute_power_graphs(ctx, trans, n):
     gs = [trans]
     ts = []
     g_k = trans
-    last_t = perf_counter_ns()
+    last_t = process_time_ns()
     for i in range(0, int(np.log2(n))):
         # t = g x g
         g_k_ = manager.let(map_mul, g_k)
@@ -78,7 +78,7 @@ def compute_power_graphs(ctx, trans, n):
         g_k_pre = manager.exist(map_next_iter.values(), t_k)
         g_k = manager.let(map_next_iter, g_k_pre)
         gs.append(g_k)
-        last_t = perf_counter_ns()
+        last_t = process_time_ns()
     return gs, ts
 
 # bdd assignment as int repr
@@ -229,9 +229,9 @@ def generate_many_traces(ctx, gs, ts, length, init, target, save_traces=False, r
     generated = []
     time_total = 0
     for _ in range(repeats):
-        iter_start_time = perf_counter_ns()
+        iter_start_time = process_time_ns()
         res = draw()
-        time_total += perf_counter_ns() - iter_start_time
+        time_total += process_time_ns() - iter_start_time
         if type(res) == str:
             print(res)
             return
@@ -293,7 +293,7 @@ if __name__ == "__main__":
     
     memlog = f'{filename}_{path_n}.bin'
     with memray.Tracker(destination=memray.FileDestination(memlog, overwrite=True), native_traces=True):
-        parse_time = perf_counter_ns()
+        parse_time = process_time_ns()
         model = load_adds_from_drdd(context.manager, filename)
         print(f'Finished parsing input: {_ms_str_from(parse_time)}.')
         init = model['initial']
@@ -310,7 +310,7 @@ if __name__ == "__main__":
             # dirname = filename.replace('.drdd', '/')
             # gs, ts = load_and_store(dirname, transitions, path_n)
         else:
-            precomp_time = perf_counter_ns()
+            precomp_time = process_time_ns()
             gs, ts = compute_power_graphs(context, transitions, path_n)
             print(f'Finished precomputing functions: {_ms_str_from(precomp_time)}.')
         

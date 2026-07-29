@@ -5,22 +5,16 @@ entry_pat = r"--- \w+\/([a-zA-Z]+)_?([\S_]+).drn - (\d+) ---\n"
 output_pat = r'''[\w ]+input: ([\d.]+)ms.\
 [\w ]+states: ([\d.]+)\
 [\w ]+transitions: ([\d.]+)\
-[\s\S]*?\
-?(?:[\w ]+functions: ([\d.]+)ms.\
-[\w ]+ mats: G\(\d+\), T\((\d+)\)|Found all required mats\.)\
-[\w ]+ probability is ([\d.+-e]+)\
+(?:\s?Found [\w\W]+?\n?)?(?:[\w ]+functions: ([\d.]+)ms.)?
+(?:[\w ]+ mats: G\(\d+\), T\((\d+)\)\n)?[\w ]+ probability is ([\d.+-e]+)\
 (?:[#\d\-\s]*Taken ([\d.]+)ms per sample|No matching traces)'''
 
 
 
 content = ""
-dir = "dtmcs/results/fmcad/"
-fnames = '''mat_sampling-egl-17277027.out
-mat_sampling-leader_sync-17277060.out
-mat_sampling-mat_brp-17276988.out
-mat_sampling-mat_crowds-17277013.out
-mat_sampling-nand-17277028.out
-mat_sampling-herman-17293619.out'''.split()
+dir = "dtmcs/features/"
+fnames = '''mat_sampling-herman_mat-19611607.out
+mat_sampling-herman_mat-19621651.out'''.split()
 
 
 res = [] # length, states, transitinons, precomp, sample
@@ -41,8 +35,9 @@ for fname in fnames:
         elif "ValueError: a cannot be empty unless no samples are taken" in output_content:
             output_type = "numeric"
         else:        
-            match = re.search(output_pat, output_content)
+            match = re.search(output_pat, output_content, re.M)
             if match:
+                print(match.groups())
                 # parsetime, #states, #transitions,
                 # precompute, written mats, prob, avg/sample
                 stats = [e if e else "-1" for e in match.groups()]

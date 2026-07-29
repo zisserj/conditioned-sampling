@@ -13,7 +13,7 @@ np.set_printoptions(precision=5, suppress=True)
 rng = np.random.default_rng()
 
 
-_ms_str_from = lambda start_ns: f'{(time.perf_counter_ns()-start_ns)*1e-6:05.6f}ms'
+_ms_str_from = lambda start_ns: f'{(time.process_time_ns()-start_ns)*1e-6:05.6f}ms'
 _ms_str_any = lambda ns: f'{ns*1e-6:.6f}ms'
 
 # make T[x,y,z] = G[x,y] * G[y,z]
@@ -214,9 +214,9 @@ def generate_many_traces(gs, ts, length, init, target, save_traces=False, repeat
     time_total = 0
     
     for _ in range(repeats):
-        iter_start_time = time.perf_counter_ns()
+        iter_start_time = time.process_time_ns()
         res = draw()
-        time_total += time.perf_counter_ns() - iter_start_time
+        time_total += time.process_time_ns() - iter_start_time
         if type(res) == str:
             print(res)
             return
@@ -249,11 +249,11 @@ def load_and_store(dirname, t0, length):
         return gs, ts
     elif exist_gs + exist_ts > 0:
         print(f'Found prior mats: G({exist_gs-1}), T({exist_ts-1})')
-        precomp_time = time.perf_counter_ns()
+        precomp_time = time.process_time_ns()
         extend_power_mats(gs, ts, num_mats)
         print(f'Finished precomputing remaining functions: {_ms_str_from(precomp_time)}.')
     else:
-        precomp_time = time.perf_counter_ns()
+        precomp_time = time.process_time_ns()
         gs, ts = compute_power_mats(t0, length)
         print(f'Finished precomputing functions: {_ms_str_from(precomp_time)}.')
     for i in range(exist_gs, len(gs)):
@@ -288,18 +288,18 @@ if __name__ == "__main__":
         store = args.store
         output = args.output
     else:
-        filename = "dtmcs/brp/brp_N_64_MAX_4.drn"
+        filename = "dtmcs/features/brp_N_32_MAX_3.drn"
         path_n = 32
         repeats = 100
         tlabel = 'target'
-        bypass = True
+        bypass = False
         store = False
         output = filename + '.out'
     print(f'Running parameters: fname={filename}, n={path_n}, repeats={repeats},'+
           f' label={tlabel}, store={store}, alg4={bypass}, output={output if len(output) > 0 else False}')
     memlog = f'{filename}_{path_n}.bin'
     with memray.Tracker(destination=memray.FileDestination(memlog, overwrite=True), native_traces=True):
-        parse_time = time.perf_counter_ns()
+        parse_time = time.process_time_ns()
         model = read_drn(filename)
         print(f'Finished parsing input: {_ms_str_from(parse_time)}.')
         init = model['init']
@@ -315,7 +315,7 @@ if __name__ == "__main__":
             dirname = filename.replace('.drn', '/')
             gs, ts = load_and_store(dirname, transitions, path_n)
         else:
-            precomp_time = time.perf_counter_ns()
+            precomp_time = time.process_time_ns()
             gs, ts = compute_power_mats(transitions, path_n)
             print(f'Finished precomputing functions: {_ms_str_from(precomp_time)}.')
         
