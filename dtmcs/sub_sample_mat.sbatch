@@ -23,15 +23,15 @@ module load anaconda				### load anaconda module (must be present when working w
 source activate conditioned_sampling				### activate a conda environment, replace my_env with your conda environment
 
 script="$HOME/conditioned/graph-sampling/sparse_mat_sample.py"
-dir=herman;
+dir=features;
 
 for dir in $dir; do # crowds egl herman leader_sync nand; do
   for file in "$dir"/*.drn; do
     fdir=${file%.*}
-    rm "$fdir"/*
-    for length in 8 12 15 16 31 32 48 63 64 96 127 128; do
+    #rm "$fdir"/*
+    for length in 8 12 16 24 32 48 64 96 128; do
         echo "--- $file - $length ---"
-        python $script "$file" $length -repeats 500 -tlabel stable --store
+        python $script "$file" $length -repeats 500 -tlabel target
     done
   done
 done
