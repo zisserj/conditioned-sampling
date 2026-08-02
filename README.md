@@ -1,3 +1,4 @@
+[![DOI](https://zenodo.org/badge/998844549.svg)](https://doi.org/10.5281/zenodo.21757960)
 ## *MCCS: Markov Chain Conditioned Sampling*
 
 This repository features three realisations of an algorithm which generates sample traces of specified length of an input Markov chain, and meet the provided initial and end conditions.
